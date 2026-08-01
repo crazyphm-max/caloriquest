@@ -1,0 +1,15 @@
+{
+  "name": "CaloriQuest — jornada de queima de calorias",
+  "short_name": "CaloriQuest",
+  "description": "Controle de calorias gameficado: registre o que comeu, veja seu déficit e acompanhe seu personagem avançando na pista.",
+  "lang": "pt-BR",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#7fc4f2",
+  "theme_color": "#7fc4f2",
+  "icons": [
+    { "src": "assets/sprites/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/sprites/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

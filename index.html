@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#7fc4f2" />
+  <title>CaloriQuest — sua jornada de queima de calorias</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/sprites/icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/sprites/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ===== Onboarding (primeira vez) ===== -->
+  <div id="onboarding" class="onboarding hidden">
+    <div class="ob-card">
+      <img src="assets/sprites/icon-192.png" alt="" class="ob-icon" />
+      <h1>CaloriQuest</h1>
+      <p class="ob-sub">Sua jornada de queima de calorias, gameficada. Conta pra gente quem você é:</p>
+      <form id="ob-form">
+        <label>Nome <input name="name" required maxlength="30" placeholder="Como te chamamos?" /></label>
+        <div class="row2">
+          <label>Sexo
+            <select name="sex">
+              <option value="m">Masculino</option>
+              <option value="f">Feminino</option>
+            </select>
+          </label>
+          <label>Idade <input name="age" type="number" min="10" max="100" required placeholder="anos" /></label>
+        </div>
+        <div class="row2">
+          <label>Altura (cm) <input name="height" type="number" min="120" max="230" required placeholder="ex.: 175" /></label>
+          <label>Peso atual (kg) <input name="weight" type="number" min="35" max="300" step="0.1" required placeholder="ex.: 98,5" /></label>
+        </div>
+        <label>Nível de atividade no dia a dia
+          <select name="activity">
+            <option value="sedentario">Sedentário (trabalho sentado, pouco movimento)</option>
+            <option value="leve">Leve (caminho um pouco todo dia)</option>
+            <option value="moderado">Moderado (exercício 3-5x por semana)</option>
+            <option value="intenso">Intenso (exercício pesado quase todo dia)</option>
+          </select>
+        </label>
+        <div class="row2">
+          <label>Peso desejado (kg) <input name="targetWeight" type="number" min="35" max="300" step="0.1" required placeholder="ex.: 85" /></label>
+          <label>Até quando? <input name="targetDate" type="date" required /></label>
+        </div>
+        <button type="submit" class="btn-primary">Começar a jornada 🏁</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== App ===== -->
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">CaloriQuest</div>
+      <div class="stats">
+        <span id="hdr-streak" title="dias seguidos no déficit">🔥 0</span>
+        <span id="hdr-level" class="level">Nv 1</span>
+      </div>
+    </header>
+    <div class="xpbar"><div id="xp-fill" class="xp-fill"></div></div>
+
+    <!-- --- Aba Hoje --- -->
+    <main id="tab-hoje" class="tab">
+      <section class="scene-wrap">
+        <canvas id="scene"></canvas>
+        <div id="mood-label" class="mood-label">☀️ No ritmo!</div>
+      </section>
+
+      <section class="cards">
+        <div class="card">
+          <div class="card-val" id="c-eaten">0</div>
+          <div class="card-lbl">consumidas</div>
+        </div>
+        <div class="card">
+          <div class="card-val" id="c-burn">0</div>
+          <div class="card-lbl">gastas</div>
+        </div>
+        <div class="card" id="c-balance-card">
+          <div class="card-val" id="c-balance">0</div>
+          <div class="card-lbl" id="c-balance-lbl">déficit</div>
+        </div>
+      </section>
+      <p class="proj-line" id="proj-line"></p>
+
+      <section class="panel">
+        <h2>🍽️ O que você comeu?</h2>
+        <div class="food-add">
+          <div class="food-input-wrap">
+            <input id="food-input" type="text" placeholder="ex.: arroz, feijão, x-burger…" autocomplete="off" />
+            <div id="food-suggest" class="suggest hidden"></div>
+          </div>
+          <div class="qty-wrap">
+            <button id="qty-minus" type="button">−</button>
+            <span id="qty-val">1</span>
+            <button id="qty-plus" type="button">+</button>
+          </div>
+        </div>
+        <div id="custom-kcal-wrap" class="custom-kcal hidden">
+          <span>Não achei 🙈 — quantas kcal (chuta pra cima!)?</span>
+          <input id="custom-kcal" type="number" min="1" max="5000" placeholder="kcal" />
+          <button id="custom-add" class="btn-small">Adicionar</button>
+        </div>
+        <ul id="food-list" class="item-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>🏃 Exercícios de hoje</h2>
+        <div class="ex-add">
+          <select id="ex-select"></select>
+          <input id="ex-min" type="number" min="1" max="600" value="30" /> <span class="unit">min</span>
+          <button id="ex-add-btn" class="btn-small">+</button>
+        </div>
+        <ul id="ex-list" class="item-list"></ul>
+      </section>
+    </main>
+
+    <!-- --- Aba Desafios --- -->
+    <main id="tab-desafios" class="tab hidden">
+      <h2 class="page-title">⚔️ Desafios de hoje</h2>
+      <p class="page-sub">Complete desafios para ganhar XP e acelerar seu bonequinho!</p>
+      <div id="challenge-list"></div>
+    </main>
+
+    <!-- --- Aba Progresso --- -->
+    <main id="tab-progresso" class="tab hidden">
+      <h2 class="page-title">📈 Progresso</h2>
+      <section class="panel">
+        <h2>⚖️ Registrar peso de hoje</h2>
+        <div class="ex-add">
+          <input id="weight-input" type="number" min="35" max="300" step="0.1" placeholder="kg" />
+          <button id="weight-add" class="btn-small">Salvar</button>
+        </div>
+      </section>
+      <section class="panel">
+        <canvas id="weight-chart" height="180"></canvas>
+      </section>
+      <section class="panel" id="progress-stats"></section>
+    </main>
+
+    <!-- --- Aba Perfil --- -->
+    <main id="tab-perfil" class="tab hidden">
+      <h2 class="page-title">👤 Perfil</h2>
+      <section class="panel">
+        <form id="profile-form"></form>
+      </section>
+      <section class="panel">
+        <h2>ℹ️ Como calculamos</h2>
+        <p class="info-text">
+          Sua taxa basal usa a fórmula Mifflin-St Jeor e o gasto diário considera seu nível de
+          atividade. As calorias dos alimentos são médias brasileiras <b>arredondadas para cima</b>
+          (já que quase ninguém pesa a comida) e as dos exercícios, para baixo — assim o app nunca
+          te dá déficit que você não fez. Cada ~7.700 kcal de déficit ≈ 1 kg a menos.
+        </p>
+      </section>
+    </main>
+
+    <!-- --- Navegação --- -->
+    <nav class="bottomnav">
+      <button data-tab="hoje" class="active"><span>🏠</span>Hoje</button>
+      <button data-tab="desafios"><span>⚔️</span>Desafios</button>
+      <button data-tab="progresso"><span>📈</span>Progresso</button>
+      <button data-tab="perfil"><span>👤</span>Perfil</button>
+    </nav>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/foods.js"></script>
+  <script src="js/calc.js"></script>
+  <script src="js/challenges.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 // Cena do jogo: pista contínua com parallax, clima e personagem em pixel art.
 // O humor ("mood") vem dos dados de calorias e controla velocidade, clima e animação:
+//   idle → parado no amanhecer, esperando o "start" do dia
 //   run  → correndo, dia claro e ensolarado (acelerando a meta)
 //   walk → andando, ensolarado (no ritmo)
 //   slow → andando devagar, chuva (caindo o ritmo)
@@ -7,15 +8,16 @@
 
 const GameScene = (() => {
   const FW = 44, FH = 52; // tamanho do frame no sprite sheet
-  const ROWS = { walk: 0, run: 1, slow: 0, sad: 2 };
-  const SPEED = { run: 150, walk: 65, slow: 22, sad: -35 }; // px/s do chão
-  const ANIM_FPS = { run: 10, walk: 6, slow: 3, sad: 2.6 };
-  const RAIN = { run: 0, walk: 0, slow: 70, sad: 160 };
+  const ROWS = { walk: 0, run: 1, slow: 0, sad: 2, idle: 3 };
+  const SPEED = { run: 150, walk: 65, slow: 22, sad: -35, idle: 0 }; // px/s do chão
+  const ANIM_FPS = { run: 10, walk: 6, slow: 3, sad: 2.6, idle: 2 };
+  const RAIN = { run: 0, walk: 0, slow: 70, sad: 160, idle: 0 };
   const SKY = {
     run: { top: [110, 200, 255], bot: [210, 240, 255], dark: 0 },
     walk: { top: [127, 196, 242], bot: [207, 234, 253], dark: 0 },
     slow: { top: [124, 138, 160], bot: [186, 194, 208], dark: 0.22 },
     sad: { top: [58, 63, 87], bot: [104, 110, 136], dark: 0.45 },
+    idle: { top: [150, 185, 230], bot: [255, 216, 168], dark: 0 }, // amanhecer
   };
 
   let canvas, ctx, img = {};

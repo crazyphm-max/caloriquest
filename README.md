@@ -9,6 +9,7 @@ numa pista contínua refletindo o seu ritmo:
 
 | Situação | Cena |
 | --- | --- |
+| Dia ainda não começou | 🌅 Amanhecer, personagem **parado**, respirando, esperando o start |
 | À frente da meta | ☀️ Dia claro, personagem **correndo** |
 | No ritmo | 🚶 Ensolarado, personagem andando |
 | Caindo o ritmo | 🌧️ Chuva, personagem devagar |
@@ -17,6 +18,10 @@ numa pista contínua refletindo o seu ritmo:
 ## Funcionalidades
 
 - **Perfil**: peso, altura, idade, sexo, nível de atividade, peso desejado e prazo
+- **Start do dia**: o personagem começa parado; o dia só "começa" quando você registra a
+  primeira refeição, exercício ou pesagem
+- **Pesagem matinal**: todo dia o app convida (sem obrigar!) a se pesar em jejum — se não
+  tiver balança, é só tocar em "Sem balança hoje"
 - **Taxa basal** (Mifflin-St Jeor) + gasto diário total pelo nível de atividade
 - **Registro de refeições** por busca de texto (130+ alimentos brasileiros com porção média);
   se não achar, você informa as kcal na mão

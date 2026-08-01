@@ -109,6 +109,15 @@ body {
 }
 .panel h2 { font-size: 1rem; margin-bottom: 10px; }
 
+.weigh-card { margin-top: 12px; margin-bottom: 0; border-color: #f0d9a8; background: #fffaf0; }
+.weigh-txt { font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; line-height: 1.45; }
+.weigh-card .ex-add { flex-wrap: wrap; }
+.weigh-card input { width: 90px; }
+.btn-ghost {
+  padding: 9px 12px; background: none; border: 1.5px solid var(--border);
+  color: var(--muted); border-radius: 10px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+}
+
 .food-add { display: flex; gap: 8px; }
 .food-input-wrap { position: relative; flex: 1; }
 #food-input {

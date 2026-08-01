@@ -106,6 +106,7 @@ function moodFromRatio(r) {
 }
 
 const MOOD_INFO = {
+  idle: { label: "Bom dia! Registre algo para dar o start", emoji: "🌅" },
   run: { label: "Acelerando! Você está à frente da meta", emoji: "🏃☀️" },
   walk: { label: "No ritmo! Continue assim", emoji: "🚶☀️" },
   slow: { label: "Caindo o ritmo… dá pra recuperar hoje!", emoji: "🌧️" },

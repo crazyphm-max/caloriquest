@@ -274,7 +274,9 @@ function renderToday() {
   // projeção
   const proj = projection(state);
   const line = document.getElementById("proj-line");
-  if (proj && state.profile.targetWeight < state.profile.weight) {
+  if (!dayStarted()) {
+    line.textContent = "Pese-se ou registre a 1ª refeição para dar o start no dia 🌅";
+  } else if (proj && state.profile.targetWeight < state.profile.weight) {
     const eta = proj.etaDate
       ? `você chega aos <b>${fmtKg(state.profile.targetWeight)}</b> em <b>${fmtDate(proj.etaDate)}</b>`
       : `a meta ainda não vem — precisa de déficit!`;
@@ -309,6 +311,7 @@ function renderToday() {
     }));
 
   updateMood();
+  renderWeighCard();
   renderHeader();
   renderChallenges();
 }
@@ -320,12 +323,52 @@ function renderItemList(id, items, tpl, emptyMsg) {
     : `<li class="empty-note">${emptyMsg}</li>`;
 }
 
+// O dia só "dá o start" quando a pessoa registra algo: refeição, exercício ou pesagem
+function dayStarted() {
+  const day = state.days[dayKey()];
+  const weighedToday = state.weights.some((w) => w.d === dayKey());
+  return !!(day && (day.foods.length || day.ex.length)) || weighedToday;
+}
+
 function updateMood() {
-  const ratio = paceRatio(state);
-  const mood = moodFromRatio(ratio);
+  const mood = dayStarted() ? moodFromRatio(paceRatio(state)) : "idle";
   GameScene.setMood(mood);
   const info = MOOD_INFO[mood];
   document.getElementById("mood-label").textContent = `${info.emoji} ${info.label}`;
+}
+
+// Card de pesagem matinal: sempre convida, nunca obriga (nem todo dia tem balança)
+function renderWeighCard() {
+  const card = document.getElementById("weigh-card");
+  const weighedToday = state.weights.some((w) => w.d === dayKey());
+  card.classList.toggle("hidden", weighedToday || !!today().weighSkipped);
+}
+
+function logWeight(kg) {
+  const k = dayKey();
+  state.weights = state.weights.filter((w) => w.d !== k);
+  state.weights.push({ d: k, kg });
+  state.weights.sort((a, b) => (a.d < b.d ? -1 : 1));
+  state.profile.weight = kg;
+  saveState();
+}
+
+function setupWeighCard() {
+  document.getElementById("morning-weight-save").onclick = () => {
+    const kg = +document.getElementById("morning-weight").value;
+    if (!kg || kg < 35 || kg > 300) return toast("Peso inválido 🤔");
+    logWeight(kg);
+    document.getElementById("morning-weight").value = "";
+    addXp(15, "pesagem em jejum");
+    renderToday();
+    renderProgress();
+  };
+  document.getElementById("morning-weight-skip").onclick = () => {
+    today().weighSkipped = true;
+    saveState();
+    toast("Tranquilo! Amanhã a gente pergunta de novo 😉");
+    renderWeighCard();
+  };
 }
 
 function renderHeader() {
@@ -390,12 +433,7 @@ function setupProgress() {
   document.getElementById("weight-add").onclick = () => {
     const kg = +document.getElementById("weight-input").value;
     if (!kg || kg < 35 || kg > 300) return toast("Peso inválido 🤔");
-    const k = dayKey();
-    state.weights = state.weights.filter((w) => w.d !== k);
-    state.weights.push({ d: k, kg });
-    state.weights.sort((a, b) => (a.d < b.d ? -1 : 1));
-    state.profile.weight = kg;
-    saveState();
+    logWeight(kg);
     document.getElementById("weight-input").value = "";
     toast("Peso registrado! ⚖️");
     renderProgress();
@@ -521,6 +559,7 @@ function startApp() {
   awardPastDays();
   setupFoodInput();
   setupExercise();
+  setupWeighCard();
   setupProgress();
   setupTabs();
   renderAll();

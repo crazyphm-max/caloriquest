@@ -2,7 +2,7 @@
 """Gera os sprites em pixel art do CaloriQuest (PNGs reais, sem HTML/CSS art).
 
 Saida em assets/sprites/:
-  walker.png      - sprite sheet do personagem: 3 linhas (walk, run, sad) x 4 frames
+  walker.png      - sprite sheet do personagem: 4 linhas (walk, run, sad, idle) x 4 frames
   ground.png      - tile da pista/caminho
   hills.png       - tile dos morros com arvores (parallax)
   cloud1.png, cloud2.png, sun.png, storm.png
@@ -75,6 +75,9 @@ def draw_character(pose):
       headDrop   : cabeca abaixada (px), sad
       run        : bool (bracos dobrados)
       sad        : bool (postura caida)
+      idle       : bool (parado, respirando)
+      breath     : inflar barriga/peito (px), idle
+      blink      : bool (olho fechado), idle
     """
     img = Image.new("RGBA", (FW, FH), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -83,6 +86,8 @@ def draw_character(pose):
     bob = pose.get("bob", 0)
     hip_y = 33 + bob
     sad = pose.get("sad", False)
+    idle = pose.get("idle", False)
+    breath = pose.get("breath", 0)
 
     # ----- pernas (atras do corpo: perna de tras mais escura) -----
     for which, shade in (("legB", True), ("legF", False)):
@@ -105,7 +110,7 @@ def draw_character(pose):
     if pose.get("run"):
         brush(d, cx - 1, sh_y, cx - 1 - swing * 0.4, sh_y + 5, 4, SHIRT_SH)
         brush(d, cx - 1 - swing * 0.4, sh_y + 5, cx - 1 - swing, sh_y + 3, 3, SKIN_SH)
-    elif sad:
+    elif sad or idle:
         brush(d, cx - 2, sh_y, cx - 3, sh_y + 10, 3, SKIN_SH)
     else:
         brush(d, cx - 1, sh_y, cx - 1 - swing, sh_y + 9, 3, SKIN_SH)
@@ -116,7 +121,7 @@ def draw_character(pose):
     d.rounded_rectangle([cx - 7, hip_y - 4, cx + 7, hip_y + 3], 3, fill=SHORTS)
     d.rectangle([cx - 7, hip_y - 1, cx + 7, hip_y + 1], fill=SHORTS_SH)
     # barrigao (aparecendo embaixo da camiseta, saltando pra frente)
-    d.ellipse([cx - 8, belly_top + 2, cx + 12, hip_y - 1], fill=SKIN)
+    d.ellipse([cx - 8, belly_top + 2 - breath, cx + 12 + breath, hip_y - 1], fill=SKIN)
     d.ellipse([cx - 6, belly_top + 5, cx + 10, hip_y - 2], fill=SKIN)
     d.ellipse([cx + 6, belly_top + 5, cx + 12, hip_y - 3], fill=SKIN)
     # umbigo
@@ -141,7 +146,10 @@ def draw_character(pose):
         d.point((hx + 3, hy + 2), fill=OUTLINE)
         d.line([hx + 1, hy + 5, hx + 4, hy + 5], fill=SKIN_SH)
     else:
-        d.point((hx + 4, hy), fill=OUTLINE)
+        if pose.get("blink"):
+            d.line([hx + 3, hy, hx + 5, hy], fill=OUTLINE)
+        else:
+            d.point((hx + 4, hy), fill=OUTLINE)
         # sorriso
         d.line([hx + 2, hy + 3, hx + 5, hy + 3], fill=SKIN_SH)
     # pescoco
@@ -155,7 +163,7 @@ def draw_character(pose):
         fist_x, fist_y = cx + max(2, swing * 0.9), sh_y - 1
         brush(d, cx + 2, sh_y - 2, elbow_x, elbow_y, 3, SKIN)
         brush(d, elbow_x, elbow_y, fist_x, fist_y, 3, SKIN)
-    elif sad:
+    elif sad or idle:
         brush(d, cx + 2, sh_y, cx + 3, sh_y + 11, 3, SKIN)
     else:
         brush(d, cx + 2, sh_y, cx + 2 + swing, sh_y + 9, 3, SKIN)
@@ -182,11 +190,17 @@ SAD = [
     {"legF": (-2, 0), "legB": (3, 0), "bob": 1, "lean": -1, "headDrop": 4, "sad": True},
     {"legF": (0, 0), "legB": (1, 1), "bob": 2, "lean": -1, "headDrop": 5, "sad": True},
 ]
+IDLE = [
+    {"legF": (2, 0), "legB": (-3, 0), "idle": True, "breath": 0},
+    {"legF": (2, 0), "legB": (-3, 0), "idle": True, "breath": 1, "bob": -1},
+    {"legF": (2, 0), "legB": (-3, 0), "idle": True, "breath": 1},
+    {"legF": (2, 0), "legB": (-3, 0), "idle": True, "breath": 0, "blink": True},
+]
 
 
 def make_sheet():
-    sheet = Image.new("RGBA", (FW * 4, FH * 3), (0, 0, 0, 0))
-    for row, frames in enumerate((WALK, RUN, SAD)):
+    sheet = Image.new("RGBA", (FW * 4, FH * 4), (0, 0, 0, 0))
+    for row, frames in enumerate((WALK, RUN, SAD, IDLE)):
         for col, pose in enumerate(frames):
             sheet.alpha_composite(draw_character(pose), (col * FW, row * FH))
     sheet.save(os.path.join(OUT, "walker.png"))
@@ -321,12 +335,12 @@ def make_icons(sheet):
 def make_preview(sheet, ground, hills):
     scale = 4
     w = FW * 4 * scale
-    h = (FH * 3 + 40) * scale
+    h = (FH * 4 + 40) * scale
     prev = Image.new("RGBA", (w, h), (150, 205, 245, 255))
     prev.alpha_composite(
         sheet.resize((sheet.width * scale, sheet.height * scale), Image.NEAREST), (0, 0)
     )
-    gy = FH * 3 * scale
+    gy = FH * 4 * scale
     g = ground.resize((ground.width * scale, ground.height * scale), Image.NEAREST)
     for x in range(0, w, g.width):
         prev.alpha_composite(g, (x, gy))

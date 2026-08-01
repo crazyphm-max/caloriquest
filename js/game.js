@@ -7,10 +7,12 @@
 //   sad  → cabisbaixo, andando PARA TRÁS, tempestade (regredindo)
 
 const GameScene = (() => {
-  const FW = 44, FH = 52; // tamanho do frame no sprite sheet
+  const FW = 64, FH = 88; // tamanho do frame no sprite sheet
+  const FRAMES = 6;       // frames por animação
+  const CHAR_GROUND = 84; // linha do chão dentro do frame
   const ROWS = { walk: 0, run: 1, slow: 0, sad: 2, idle: 3 };
   const SPEED = { run: 150, walk: 65, slow: 22, sad: -35, idle: 0 }; // px/s do chão
-  const ANIM_FPS = { run: 10, walk: 6, slow: 3, sad: 2.6, idle: 2 };
+  const ANIM_FPS = { run: 15, walk: 9, slow: 4.5, sad: 4, idle: 3.5 };
   const RAIN = { run: 0, walk: 0, slow: 70, sad: 160, idle: 0 };
   const SKY = {
     run: { top: [110, 200, 255], bot: [210, 240, 255], dark: 0 },
@@ -99,7 +101,7 @@ const GameScene = (() => {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
-    const scale = Math.max(2, Math.round(H / 90)); // pixels grandões
+    const scale = Math.max(1, Math.floor(H / 132)); // micropixels (2x em telas comuns)
     const groundH = img.ground.height * scale;
     const groundY = H - groundH;
 
@@ -107,25 +109,26 @@ const GameScene = (() => {
     const sunA = 1 - cur.dark / 0.45;
     if (sunA > 0.05) {
       ctx.globalAlpha = sunA;
-      ctx.drawImage(img.sun, W - 70, 14, img.sun.width * 2, img.sun.height * 2);
+      ctx.drawImage(img.sun, W - 100, 10, img.sun.width * 2, img.sun.height * 2);
       ctx.globalAlpha = 1;
     }
     if (cur.dark > 0.1) {
       ctx.globalAlpha = Math.min(1, cur.dark * 2.2);
-      ctx.drawImage(img.storm, W * 0.32, 8, img.storm.width * 2.2, img.storm.height * 2.2);
+      ctx.drawImage(img.storm, W * 0.3, 8, img.storm.width * 1.6, img.storm.height * 1.6);
       ctx.globalAlpha = 1;
     }
 
     // nuvens ao fundo
     cloudX -= Math.abs(cur.speed) * 0.06 * dt + 3 * dt;
-    const cw = W + 120;
+    const cw = W + 140;
     const c1 = ((cloudX % cw) + cw) % cw;
-    ctx.drawImage(img.cloud1, c1 - 60, 22, img.cloud1.width * 2, img.cloud1.height * 2);
-    ctx.drawImage(img.cloud2, ((c1 + W * 0.55) % cw) - 60, 48, img.cloud2.width * 2, img.cloud2.height * 2);
+    ctx.drawImage(img.cloud1, c1 - 70, 20, img.cloud1.width * 1.6, img.cloud1.height * 1.6);
+    ctx.drawImage(img.cloud2, ((c1 + W * 0.55) % cw) - 70, 52, img.cloud2.width * 1.6, img.cloud2.height * 1.6);
 
     // morros (parallax lento)
+    const hscale = scale * 0.5;
     hillsX -= cur.speed * 0.22 * dt;
-    drawTiled(img.hills, hillsX, groundY - img.hills.height * scale * 0.55 + 4, scale * 0.55, W);
+    drawTiled(img.hills, hillsX, groundY - img.hills.height * hscale + 8 * hscale, hscale, W);
 
     // pista
     groundX -= cur.speed * dt;
@@ -138,12 +141,18 @@ const GameScene = (() => {
     }
 
     // personagem
-    const spd = Math.abs(cur.speed);
     animT += dt * (ANIM_FPS[mood] || 6);
-    frame = Math.floor(animT) % 4;
+    frame = Math.floor(animT) % FRAMES;
     const row = ROWS[mood];
-    const cx = W * 0.3;
-    const cy = groundY - FH * scale + 8 * scale; // pés afundam um pouco na grama
+    const cx = W * 0.28;
+    const cy = groundY + 4 * scale - CHAR_GROUND * scale; // pés afundam de leve na grama
+
+    // sombra de contato no chão
+    ctx.fillStyle = `rgba(18,24,44,${0.28 - cur.dark * 0.25})`;
+    ctx.beginPath();
+    ctx.ellipse(cx + 31 * scale, groundY + 5 * scale, 20 * scale, 4 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.save();
     ctx.translate(cx, cy);
     if (cur.flip > 0.5) ctx.scale(-1, 1), ctx.translate(-FW * scale, 0);

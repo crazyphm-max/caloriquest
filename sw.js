@@ -1,5 +1,5 @@
 // Service worker: deixa o CaloriQuest funcionar offline (cache-first)
-const CACHE = "caloriquest-v2";
+const CACHE = "caloriquest-v3";
 const ASSETS = [
   "./",
   "./index.html",

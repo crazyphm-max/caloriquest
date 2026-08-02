@@ -33,6 +33,37 @@ numa pista contínua refletindo o seu ritmo:
 - **Gráfico de peso** com linha da meta
 - Funciona **offline** (PWA) e pode ser instalado na tela inicial do celular
 
+## Personagens
+
+Ao se cadastrar você escolhe o sexo e o app usa o personagem correspondente —
+ele de camiseta vermelha e faixa amarela, ela de top rosa, shorts verde-água e
+rabo de cavalo. Os dois começam gordinhos: a jornada é essa. 😄
+
+## Nuvem: login e dados por pessoa (Cloudflare)
+
+O app tem uma API pronta para **Cloudflare Pages + Functions + D1** (grátis):
+cada pessoa cria sua conta (e-mail + senha), os dados ficam no banco D1 e
+sincronizam entre aparelhos. Sem a API (GitHub Pages, arquivo local), o app
+funciona em modo local, como sempre.
+
+Deploy (uma vez, ~10 minutos):
+
+```bash
+npm install -g wrangler
+wrangler login                                # abre o navegador p/ autorizar
+wrangler d1 create caloriquest-db             # copie o database_id que aparecer
+# cole o database_id no wrangler.toml
+wrangler d1 execute caloriquest-db --remote --file=schema.sql
+wrangler pages deploy .
+```
+
+O site sobe em `https://caloriquest.pages.dev` (dá pra ligar domínio próprio).
+Deploys seguintes: só `wrangler pages deploy .` de novo — ou conecte o
+repositório no painel do Cloudflare Pages para deploy automático a cada push.
+
+Notas de segurança: senhas com PBKDF2 (100 mil iterações), sessão em cookie
+HttpOnly de 180 dias, e cada usuário só acessa o próprio estado.
+
 ## Como usar no celular
 
 1. Hospede a pasta em qualquer servidor estático (GitHub Pages resolve):

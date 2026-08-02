@@ -1,0 +1,13 @@
+# Configuração do CaloriQuest no Cloudflare Pages
+# 1. crie o banco:      npx wrangler d1 create caloriquest-db
+# 2. cole o database_id gerado aqui embaixo
+# 3. aplique o schema:  npx wrangler d1 execute caloriquest-db --remote --file=schema.sql
+# 4. publique:          npx wrangler pages deploy .
+name = "caloriquest"
+compatibility_date = "2026-08-01"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "caloriquest-db"
+database_id = "COLOQUE_O_ID_DO_SEU_D1_AQUI"

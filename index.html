@@ -11,6 +11,22 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <!-- ===== Login (quando hospedado com a API na nuvem) ===== -->
+  <div id="auth" class="onboarding hidden">
+    <div class="ob-card">
+      <img src="assets/sprites/icon-192.png" alt="" class="ob-icon" />
+      <h1>CaloriQuest</h1>
+      <p class="ob-sub">Entre com sua conta para salvar seu progresso na nuvem e usar em qualquer aparelho.</p>
+      <form id="auth-form">
+        <label>E-mail <input name="email" type="email" required autocomplete="email" placeholder="voce@exemplo.com" /></label>
+        <label>Senha <input name="password" type="password" required minlength="6" autocomplete="current-password" placeholder="mínimo 6 caracteres" /></label>
+        <button type="submit" class="btn-primary">Entrar</button>
+        <button type="button" id="auth-register" class="btn-secondary">Criar conta nova</button>
+        <p id="auth-msg" class="auth-msg"></p>
+      </form>
+    </div>
+  </div>
+
   <!-- ===== Onboarding (primeira vez) ===== -->
   <div id="onboarding" class="onboarding hidden">
     <div class="ob-card">
@@ -21,12 +37,16 @@
         <label>Nome <input name="name" required maxlength="30" placeholder="Como te chamamos?" /></label>
         <div class="row2">
           <label>Sexo
-            <select name="sex">
+            <select name="sex" id="ob-sex">
               <option value="m">Masculino</option>
               <option value="f">Feminino</option>
             </select>
           </label>
           <label>Idade <input name="age" type="number" min="10" max="100" required placeholder="anos" /></label>
+        </div>
+        <div class="char-preview">
+          <img id="ob-char" src="assets/sprites/char_m.png" alt="Seu personagem" />
+          <span>seu personagem!</span>
         </div>
         <div class="row2">
           <label>Altura (cm) <input name="height" type="number" min="120" max="230" required placeholder="ex.: 175" /></label>
@@ -155,6 +175,7 @@
       <section class="panel">
         <form id="profile-form"></form>
       </section>
+      <section class="panel hidden" id="account-panel"></section>
       <section class="panel">
         <h2>ℹ️ Como calculamos</h2>
         <p class="info-text">
@@ -181,6 +202,7 @@
   <script src="js/calc.js"></script>
   <script src="js/challenges.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

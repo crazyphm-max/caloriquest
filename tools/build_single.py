@@ -30,22 +30,30 @@ def build():
     calc = read("js/calc.js")
     challenges = read("js/challenges.js")
     game = read("js/game.js")
+    sync = read("js/sync.js")
     app = read("js/app.js")
     html = read("index.html")
 
     sprites = {n: b64(f"assets/sprites/{n}.png")
-               for n in ("walker", "ground", "hills", "cloud1", "cloud2", "sun", "storm", "icon-192")}
+               for n in ("walker_m", "walker_f", "ground", "hills", "cloud1", "cloud2",
+                         "sun", "storm", "icon-192", "char_m", "char_f")}
 
     # game.js: carrega dos data URIs em vez de arquivos
     game = game.replace('const base = "assets/sprites/";', "")
     game = game.replace('loadImage(base + n + ".png")', "loadImage(SPRITE_DATA[n])")
 
-    # app.js: sem service worker na versao single-file
-    app = app.replace('if ("serviceWorker" in navigator)\n  navigator.serviceWorker.register("sw.js").catch(() => {});', "")
+    # app.js: sem service worker; previews de personagem viram data URI
+    app = app.replace('''  if ("serviceWorker" in navigator)
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+''', "")
+    app = app.replace(
+        'const CHAR_PREVIEWS = { m: "assets/sprites/char_m.png", f: "assets/sprites/char_f.png" };',
+        f'const CHAR_PREVIEWS = {{ m: SPRITE_DATA.char_m, f: SPRITE_DATA.char_f }};')
 
     # corpo da pagina (entre <body> e os <script src>)
     body = html.split("<body>")[1].split("<script")[0]
     body = body.replace('src="assets/sprites/icon-192.png"', f'src="{sprites["icon-192"]}"')
+    body = body.replace('src="assets/sprites/char_m.png"', f'src="{sprites["char_m"]}"')
 
     sprite_js = "const SPRITE_DATA = {" + ",".join(
         f'{n}:"{d}"' for n, d in sprites.items() if n != "icon-192") + "};"
@@ -64,6 +72,7 @@ def build():
 {calc}
 {challenges}
 {game}
+{sync}
 {app}
 </script>
 """

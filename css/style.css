@@ -58,6 +58,20 @@ body {
 }
 .btn-primary:active { transform: translateY(2px); box-shadow: 0 2px 0 #a83232; }
 
+.btn-secondary {
+  padding: 12px; font-size: 0.95rem; font-weight: 700;
+  background: none; color: var(--ink); border: 2px solid var(--border);
+  border-radius: 12px; cursor: pointer;
+}
+.auth-msg { color: var(--red); font-size: 0.85rem; text-align: center; min-height: 1.2em; margin: 0; }
+
+.char-preview {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 0 2px;
+}
+.char-preview img { height: 110px; image-rendering: pixelated; }
+.char-preview span { font-size: 0.75rem; color: var(--muted); }
+
 /* ===== Estrutura ===== */
 .app { max-width: 520px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
 

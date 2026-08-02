@@ -1,5 +1,5 @@
 // Service worker: deixa o CaloriQuest funcionar offline (cache-first)
-const CACHE = "caloriquest-v3";
+const CACHE = "caloriquest-v4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,9 +8,13 @@ const ASSETS = [
   "./js/calc.js",
   "./js/challenges.js",
   "./js/game.js",
+  "./js/sync.js",
   "./js/app.js",
   "./manifest.webmanifest",
-  "./assets/sprites/walker.png",
+  "./assets/sprites/walker_m.png",
+  "./assets/sprites/walker_f.png",
+  "./assets/sprites/char_m.png",
+  "./assets/sprites/char_f.png",
   "./assets/sprites/ground.png",
   "./assets/sprites/hills.png",
   "./assets/sprites/cloud1.png",
@@ -36,6 +40,8 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  // API nunca passa pelo cache — sempre rede
+  if (new URL(e.request.url).pathname.includes("/api/")) return;
   e.respondWith(
     caches.match(e.request).then((hit) => hit || fetch(e.request))
   );

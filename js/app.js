@@ -1,19 +1,25 @@
 // CaloriQuest — lógica do app (estado, UI, gamificação)
 
-const STORE_KEY = "cq_v1";
+const STORE_BASE = "cq_v1";
 
-let state = loadState();
+let state = null; // carregado no boot (local ou da nuvem)
 
-function loadState() {
+// Com login, cada usuário tem sua chave local (cache offline por conta)
+function storeKey() {
+  return Sync.user ? `${STORE_BASE}_${Sync.user.email}` : STORE_BASE;
+}
+
+function loadState(key = storeKey()) {
   try {
-    const raw = localStorage.getItem(STORE_KEY);
+    const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw);
   } catch (e) { /* estado corrompido: recomeça */ }
   return { profile: null, weights: [], days: {}, xp: 0, awarded: {} };
 }
 
 function saveState() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  localStorage.setItem(storeKey(), JSON.stringify(state));
+  Sync.pushSoon(() => state);
 }
 
 function today() {
@@ -123,6 +129,12 @@ function setupOnboarding() {
   dateInput.value = dayKey(d);
   dateInput.min = dayKey(new Date(Date.now() + 86400000));
 
+  // preview do personagem muda junto com o sexo escolhido
+  const sexSel = document.getElementById("ob-sex");
+  sexSel.addEventListener("change", () => {
+    document.getElementById("ob-char").src = CHAR_PREVIEWS[sexSel.value];
+  });
+
   document.getElementById("ob-form").addEventListener("submit", (ev) => {
     ev.preventDefault();
     state.profile = readProfileForm(ev.target);
@@ -131,6 +143,34 @@ function setupOnboarding() {
     ob.classList.add("hidden");
     startApp();
     toast(`Bem-vindo(a), ${state.profile.name}! 🏁`);
+  });
+}
+
+// Tela de login (só aparece quando o app está hospedado com a API)
+function setupAuth() {
+  const authEl = document.getElementById("auth");
+  authEl.classList.remove("hidden");
+  const form = document.getElementById("auth-form");
+  const msg = document.getElementById("auth-msg");
+
+  async function go(action) {
+    const fd = new FormData(form);
+    msg.textContent = "";
+    try {
+      await action(fd.get("email"), fd.get("password"));
+      authEl.classList.add("hidden");
+      await enterApp();
+    } catch (e) {
+      msg.textContent = e.message;
+    }
+  }
+  form.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    go(Sync.login);
+  });
+  document.getElementById("auth-register").addEventListener("click", () => {
+    if (!form.reportValidity()) return;
+    go(Sync.register);
   });
 }
 
@@ -168,9 +208,26 @@ function renderProfileForm() {
     ev.preventDefault();
     state.profile = readProfileForm(f);
     saveState();
+    GameScene.setVariant(state.profile.sex);
     toast("Perfil atualizado! ✅");
     renderAll();
   };
+
+  // conta na nuvem: mostra quem está logado e o botão de sair
+  const acc = document.getElementById("account-panel");
+  if (Sync.user) {
+    acc.classList.remove("hidden");
+    acc.innerHTML = `
+      <h2>☁️ Conta</h2>
+      <div class="stat-row"><span>Logado como</span><b>${Sync.user.email}</b></div>
+      <button id="logout-btn" class="btn-secondary" style="width:100%;margin-top:10px">Sair da conta</button>`;
+    document.getElementById("logout-btn").onclick = async () => {
+      await Sync.logout();
+      location.reload();
+    };
+  } else {
+    acc.classList.add("hidden");
+  }
 }
 
 // ===== Aba Hoje =====
@@ -556,6 +613,7 @@ function renderAll() {
 function startApp() {
   document.getElementById("app").classList.remove("hidden");
   GameScene.init(document.getElementById("scene"));
+  GameScene.setVariant(state.profile.sex);
   awardPastDays();
   setupFoodInput();
   setupExercise();
@@ -568,8 +626,37 @@ function startApp() {
 }
 
 // ===== Boot =====
-if ("serviceWorker" in navigator)
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+const CHAR_PREVIEWS = { m: "assets/sprites/char_m.png", f: "assets/sprites/char_f.png" };
 
-if (state.profile) startApp();
-else setupOnboarding();
+// Entra no app já autenticado (ou em modo local, sem API)
+async function enterApp() {
+  state = loadState();
+  if (Sync.user) {
+    const remote = await Sync.pull();
+    if (remote && remote.profile) {
+      // a nuvem é a fonte da verdade quando existe
+      state = remote;
+    } else if (!state.profile) {
+      // migração única: dados criados antes do login (modo anônimo) viram os
+      // dados desta conta — só na primeira conta logada neste aparelho
+      const anon = loadState(STORE_BASE);
+      if (anon.profile && !localStorage.getItem("cq_migrated")) {
+        state = anon;
+        localStorage.setItem("cq_migrated", "1");
+      }
+    }
+    saveState(); // grava na chave da conta + agenda push pra nuvem
+  }
+  if (state.profile) startApp();
+  else setupOnboarding();
+}
+
+async function boot() {
+  if ("serviceWorker" in navigator)
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  await Sync.detect();
+  if (Sync.enabled && !Sync.user) setupAuth();
+  else await enterApp();
+}
+
+boot();

@@ -23,6 +23,7 @@ const GameScene = (() => {
   };
 
   let canvas, ctx, img = {};
+  let variant = "m"; // personagem: m (masculino) ou f (feminino)
   let mood = "walk";
   let cur = { top: [...SKY.walk.top], bot: [...SKY.walk.bot], dark: 0, rain: 0, speed: SPEED.walk, flip: 0 };
   let groundX = 0, hillsX = 0, cloudX = 0;
@@ -41,9 +42,9 @@ const GameScene = (() => {
     canvas = canvasEl;
     ctx = canvas.getContext("2d");
     const base = "assets/sprites/";
-    [img.walker, img.ground, img.hills, img.cloud1, img.cloud2, img.sun, img.storm] =
+    [img.walker_m, img.walker_f, img.ground, img.hills, img.cloud1, img.cloud2, img.sun, img.storm] =
       await Promise.all(
-        ["walker", "ground", "hills", "cloud1", "cloud2", "sun", "storm"].map((n) =>
+        ["walker_m", "walker_f", "ground", "hills", "cloud1", "cloud2", "sun", "storm"].map((n) =>
           loadImage(base + n + ".png")
         )
       );
@@ -63,6 +64,10 @@ const GameScene = (() => {
 
   function setMood(m) {
     if (SKY[m]) mood = m;
+  }
+
+  function setVariant(sex) {
+    variant = sex === "f" ? "f" : "m";
   }
 
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -156,7 +161,7 @@ const GameScene = (() => {
     ctx.save();
     ctx.translate(cx, cy);
     if (cur.flip > 0.5) ctx.scale(-1, 1), ctx.translate(-FW * scale, 0);
-    ctx.drawImage(img.walker, frame * FW, row * FH, FW, FH, 0, 0, FW * scale, FH * scale);
+    ctx.drawImage(img["walker_" + variant], frame * FW, row * FH, FW, FH, 0, 0, FW * scale, FH * scale);
     ctx.restore();
 
     // chuva
@@ -205,5 +210,5 @@ const GameScene = (() => {
     ctx.stroke();
   }
 
-  return { init, setMood };
+  return { init, setMood, setVariant };
 })();

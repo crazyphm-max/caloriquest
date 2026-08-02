@@ -3,10 +3,10 @@
 modernos: micropixels, rampas de cor, sombreamento e contornos suaves).
 
 Saida em assets/sprites/:
-  walker.png      - sprite sheet do personagem: 4 linhas (walk, run, sad, idle) x 6 frames
-  ground.png      - tile da pista/caminho
-  hills.png       - tile dos morros com arvores (parallax)
-  cloud1.png, cloud2.png, sun.png, storm.png
+  walker_m.png    - personagem masculino: 4 linhas (walk, run, sad, idle) x 6 frames
+  walker_f.png    - personagem feminino (rabo de cavalo, top rosa)
+  char_m.png, char_f.png - preview parado 3x (para a tela de cadastro)
+  ground.png, hills.png, cloud1.png, cloud2.png, sun.png, storm.png
   icon-192.png, icon-512.png
   preview.png     - montagem ampliada para conferencia
 """
@@ -24,28 +24,35 @@ SKIN = (232, 164, 110, 255)
 SKIN_SH = (198, 126, 80, 255)
 SKIN_DK = (152, 88, 58, 255)
 
-SHIRT_HI = (255, 122, 102, 255)
-SHIRT = (226, 80, 63, 255)
-SHIRT_SH = (172, 52, 48, 255)
-SHIRT_DK = (118, 32, 38, 255)
-
-SHORT_HI = (98, 133, 214, 255)
-SHORT = (61, 90, 168, 255)
-SHORT_SH = (44, 65, 128, 255)
-SHORT_DK = (30, 45, 92, 255)
-
-HAIR_HI = (110, 78, 48, 255)
-HAIR = (74, 51, 31, 255)
-HAIR_SH = (48, 32, 17, 255)
-
 SHOE = (245, 246, 250, 255)
 SHOE_SH = (196, 202, 216, 255)
 SHOE_DK = (142, 150, 170, 255)
 
-BAND = (240, 196, 70, 255)      # faixa de suor na testa
-BAND_SH = (198, 152, 44, 255)
-
 OUTLINE = (26, 20, 34, 255)
+
+# variantes de personagem: cores de camiseta, bermuda, cabelo e faixa
+VARIANTS = {
+    "m": {
+        "shirt_hi": (255, 122, 102, 255), "shirt": (226, 80, 63, 255),
+        "shirt_sh": (172, 52, 48, 255), "shirt_dk": (118, 32, 38, 255),
+        "short_hi": (98, 133, 214, 255), "short": (61, 90, 168, 255),
+        "short_sh": (44, 65, 128, 255), "short_dk": (30, 45, 92, 255),
+        "hair_hi": (110, 78, 48, 255), "hair": (74, 51, 31, 255),
+        "hair_sh": (48, 32, 17, 255),
+        "band": (240, 196, 70, 255), "band_sh": (198, 152, 44, 255),
+        "ponytail": False, "lashes": False,
+    },
+    "f": {
+        "shirt_hi": (255, 130, 190, 255), "shirt": (226, 74, 150, 255),
+        "shirt_sh": (176, 46, 112, 255), "shirt_dk": (122, 26, 80, 255),
+        "short_hi": (86, 196, 188, 255), "short": (42, 152, 144, 255),
+        "short_sh": (28, 116, 110, 255), "short_dk": (16, 82, 80, 255),
+        "hair_hi": (146, 96, 54, 255), "hair": (104, 66, 36, 255),
+        "hair_sh": (70, 42, 20, 255),
+        "band": (250, 240, 250, 255), "band_sh": (206, 186, 212, 255),
+        "ponytail": True, "lashes": True,
+    },
+}
 
 FW, FH = 64, 88          # tamanho de cada frame
 FRAMES = 6               # frames por animacao
@@ -96,9 +103,9 @@ def clipped_shade(img, shape_box, shade_box, color):
     img.paste(Image.new("RGBA", img.size, color), (0, 0), mask)
 
 
-def draw_character(pose):
+def draw_character(pose, v):
     """Um frame do personagem (virado para a direita), em camadas com contorno
-    por material + silhueta externa escura."""
+    por material + silhueta externa escura. `v` = variante de cores/cabelo."""
     lean = pose.get("lean", 0)
     bob = pose.get("bob", 0)
     head_drop = pose.get("headDrop", 0)
@@ -120,18 +127,18 @@ def draw_character(pose):
         part = new_layer()
         d = ImageDraw.Draw(part)
         hipx, hipy = cx + 2, hip_y + 4
-        knee_bias = 0 if idle else 3
+        knee_bias = 0 if idle else 2
         knee_x = hipx + (ax - hipx) * 0.5 + knee_bias
         knee_y = hipy + (ay - hipy) * 0.5 - (2 if ay < GROUND_Y - 3 else 0)
-        thigh = SKIN_SH if shade else SKIN
-        shin = SKIN_SH if shade else SKIN
-        shin_dk = SKIN_DK if shade else SKIN_SH
-        brush(d, (hipx, hipy), (knee_x, knee_y), 7, thigh)
-        brush(d, (knee_x, knee_y), (ax, ay - 3), 6, shin)
-        brush(d, (knee_x + 1, knee_y + 2), (ax + 2, ay - 3), 2, shin_dk)
+        col = SKIN_SH if shade else SKIN
+        col_dk = SKIN_DK if shade else SKIN_SH
+        brush(d, (hipx, hipy), (knee_x, knee_y), 7, col)
+        brush(d, (knee_x, knee_y), (ax, ay - 3), 6, col)
+        brush(d, (knee_x + 1, knee_y + 2), (ax + 2, ay - 3), 2, col_dk)
         # meia + tenis
         sc, ss = (SHOE_SH, SHOE_DK) if shade else (SHOE, SHOE_SH)
-        d.rectangle([ax - 3, ay - 6, ax + 3, ay - 4], fill=(240, 240, 244, 255) if not shade else SHOE_SH)
+        d.rectangle([ax - 3, ay - 6, ax + 3, ay - 4],
+                    fill=(240, 240, 244, 255) if not shade else SHOE_SH)
         d.rounded_rectangle([ax - 4, ay - 4, ax + 7, ay], 2, fill=sc)
         d.rectangle([ax - 4, ay - 1, ax + 7, ay], fill=ss)
         d.rectangle([ax + 4, ay - 4, ax + 7, ay - 3], fill=ss)  # bico
@@ -141,8 +148,8 @@ def draw_character(pose):
     bx, by = pose["legB"]
     fig.alpha_composite(leg(cx + bx, GROUND_Y - by, True))
 
-    def sleeve_toward(d, sh, target, w, color, hi):
-        """Manga da camiseta: cobre o braco do ombro ate o cotovelo."""
+    def sleeve_toward(d, sh, target, w, color):
+        """Manga da camiseta: cobre o ombro ate acima do cotovelo."""
         dx, dy = target[0] - sh[0], target[1] - sh[1]
         ln = max(1.0, math.hypot(dx, dy))
         end = (sh[0] + dx / ln * 5, sh[1] + dy / ln * 5)
@@ -160,19 +167,31 @@ def draw_character(pose):
         brush(da, (shx, shy), elb, 5, SKIN_SH)
         brush(da, elb, hnd, 4, SKIN_SH)
         da.ellipse([hnd[0] - 2, hnd[1] - 2, hnd[0] + 3, hnd[1] + 3], fill=SKIN)
-        sleeve_toward(dsb, (shx, shy), elb, 5, SHIRT_SH, SHIRT)
+        sleeve_toward(dsb, (shx, shy), elb, 5, v["shirt_sh"])
     elif sad or idle:
         elb = (shx + 1, shy + 14)
         brush(da, (shx, shy), elb, 4, SKIN_SH)
         da.ellipse([elb[0] - 3, elb[1] - 2, elb[0] + 2, elb[1] + 3], fill=SKIN_SH)
-        sleeve_toward(dsb, (shx, shy), elb, 5, SHIRT_SH, SHIRT)
+        sleeve_toward(dsb, (shx, shy), elb, 5, v["shirt_sh"])
     else:
         hnd = (shx - 2 - swing, shy + 13)
         brush(da, (shx, shy), hnd, 4, SKIN_SH)
         da.ellipse([hnd[0] - 2, hnd[1] - 2, hnd[0] + 3, hnd[1] + 3], fill=SKIN_SH)
-        sleeve_toward(dsb, (shx, shy), hnd, 5, SHIRT_SH, SHIRT)
+        sleeve_toward(dsb, (shx, shy), hnd, 5, v["shirt_sh"])
     fig.alpha_composite(outline_part(armB, SKIN_DK))
     fig.alpha_composite(sleeveB)
+
+    # ---------- rabo de cavalo (atras do corpo, balanca com o passo) ----------
+    if v["ponytail"]:
+        tail = new_layer()
+        dtl = ImageDraw.Draw(tail)
+        hx0 = cx + 4
+        hy0 = 18 + bob + head_drop
+        sway = -bob  # sobe/desce oposto ao corpo = balanco natural
+        dtl.ellipse([hx0 - 16, hy0 - 2 + sway, hx0 - 8, hy0 + 12 + sway], fill=v["hair"])
+        dtl.ellipse([hx0 - 15, hy0 - 1 + sway, hx0 - 10, hy0 + 6 + sway], fill=v["hair_hi"])
+        dtl.ellipse([hx0 - 14, hy0 + 7 + sway, hx0 - 9, hy0 + 12 + sway], fill=v["hair_sh"])
+        fig.alpha_composite(outline_part(tail, v["hair_sh"]))
 
     # ---------- torso: barrigao + camiseta curta + bermuda curta ----------
     torso = new_layer()
@@ -186,22 +205,22 @@ def draw_character(pose):
     dt.rectangle([cx + 10, hip_y - 6, cx + 12, hip_y - 5], fill=SKIN_DK)  # umbigo
 
     # bermuda curta com listra branca (por cima da base da barriga)
-    dt.rounded_rectangle([cx - 12, hip_y - 1, cx + 13, hip_y + 9], 4, fill=SHORT)
-    dt.rectangle([cx - 12, hip_y + 6, cx + 13, hip_y + 9], fill=SHORT_SH)
-    dt.rectangle([cx - 12, hip_y - 1, cx + 13, hip_y], fill=SHORT_HI)  # cos
+    dt.rounded_rectangle([cx - 12, hip_y - 1, cx + 13, hip_y + 9], 4, fill=v["short"])
+    dt.rectangle([cx - 12, hip_y + 6, cx + 13, hip_y + 9], fill=v["short_sh"])
+    dt.rectangle([cx - 12, hip_y - 1, cx + 13, hip_y], fill=v["short_hi"])  # cos
     dt.rectangle([cx + 9, hip_y + 1, cx + 10, hip_y + 8], fill=(235, 238, 245, 255))  # listra
 
     # camiseta curta (barra levantada na frente: a barriga fica de fora)
     shirt_bot = belly_top + 9
-    dt.rounded_rectangle([cx - 13, sy - 4, cx + 12, shirt_bot], 5, fill=SHIRT)
+    dt.rounded_rectangle([cx - 13, sy - 4, cx + 12, shirt_bot], 5, fill=v["shirt"])
     dt.polygon([(cx - 13, shirt_bot), (cx + 12, shirt_bot - 5),
-                (cx + 12, shirt_bot - 7), (cx - 13, shirt_bot - 3)], fill=SHIRT_SH)  # barra
+                (cx + 12, shirt_bot - 7), (cx - 13, shirt_bot - 3)], fill=v["shirt_sh"])  # barra
     clipped_shade(torso, [cx - 13, sy - 4, cx + 12, shirt_bot],
-                  [cx - 24, sy + 4, cx - 2, shirt_bot + 6], SHIRT_SH)
-    dt.line([cx - 7, shirt_bot - 6, cx - 5, shirt_bot - 3], fill=SHIRT_SH)  # dobra
-    dt.line([cx + 1, shirt_bot - 7, cx + 2, shirt_bot - 4], fill=SHIRT_SH)
+                  [cx - 24, sy + 4, cx - 2, shirt_bot + 6], v["shirt_sh"])
+    dt.line([cx - 7, shirt_bot - 6, cx - 5, shirt_bot - 3], fill=v["shirt_sh"])  # dobra
+    dt.line([cx + 1, shirt_bot - 7, cx + 2, shirt_bot - 4], fill=v["shirt_sh"])
 
-    fig.alpha_composite(outline_part(torso, SHIRT_DK))
+    fig.alpha_composite(outline_part(torso, v["shirt_dk"]))
 
     # ---------- perna da frente ----------
     fig.alpha_composite(leg(cx + fx, GROUND_Y - fy, False))
@@ -209,12 +228,12 @@ def draw_character(pose):
     # ---------- cabeca ----------
     head = new_layer()
     dh = ImageDraw.Draw(head)
-    hx = cx + 5 + (0 if not sad else -2)
-    hy = 19 + bob + head_drop
+    hx = cx + 4 + (0 if not sad else -2)
+    hy = 18 + bob + head_drop
 
-    # pescoco
-    dh.rectangle([cx - 1, hy + 6, cx + 7, sy + 1], fill=SKIN)
-    dh.rectangle([cx - 1, hy + 8, cx + 2, sy + 1], fill=SKIN_SH)
+    # pescoco (alinhado ao centro do corpo)
+    dh.rectangle([cx - 1, hy + 6, cx + 6, sy + 1], fill=SKIN)
+    dh.rectangle([cx - 1, hy + 8, cx + 1, sy + 1], fill=SKIN_SH)
 
     # rosto (papada arredondada)
     face_box = [hx - 10, hy - 9, hx + 11, hy + 11]
@@ -222,17 +241,17 @@ def draw_character(pose):
     clipped_shade(head, face_box, [hx - 16, hy + 2, hx + 4, hy + 16], SKIN_SH)
     clipped_shade(head, face_box, [hx + 1, hy - 12, hx + 14, hy + 2], SKIN_HI)
 
-    # cabelo (topo/atras) + faixa de suor acima da testa
-    dh.ellipse([hx - 10, hy - 10, hx + 10, hy - 4], fill=HAIR)
-    dh.rectangle([hx - 10, hy - 7, hx - 6, hy + 6], fill=HAIR)
-    dh.ellipse([hx - 9, hy - 10, hx + 4, hy - 6], fill=HAIR_HI)
-    dh.rectangle([hx - 10, hy + 2, hx - 8, hy + 6], fill=HAIR_SH)
-    dh.rectangle([hx - 8, hy - 6, hx + 10, hy - 4], fill=BAND)
-    dh.rectangle([hx - 8, hy - 4, hx + 10, hy - 4], fill=BAND_SH)
+    # cabelo (topo + nuca curta) + faixa de suor acima da testa
+    dh.ellipse([hx - 10, hy - 10, hx + 10, hy - 4], fill=v["hair"])
+    dh.rectangle([hx - 10, hy - 7, hx - 6, hy + 3], fill=v["hair"])
+    dh.ellipse([hx - 8, hy - 10, hx + 4, hy - 6], fill=v["hair_hi"])
+    dh.rectangle([hx - 10, hy + 1, hx - 8, hy + 3], fill=v["hair_sh"])
+    dh.rectangle([hx - 8, hy - 6, hx + 10, hy - 4], fill=v["band"])
+    dh.rectangle([hx - 8, hy - 4, hx + 10, hy - 4], fill=v["band_sh"])
 
     if sad:
         dh.line([hx + 4, hy + 1, hx + 7, hy + 1], fill=OUTLINE)          # olho fechado
-        dh.line([hx + 3, hy - 2, hx + 7, hy - 1], fill=HAIR_SH)          # sobrancelha caida
+        dh.line([hx + 3, hy - 2, hx + 7, hy - 1], fill=v["hair_sh"])     # sobrancelha caida
         dh.arc([hx + 3, hy + 6, hx + 9, hy + 10], 180, 360, fill=SKIN_DK)  # boca triste
     else:
         blink = pose.get("blink", False)
@@ -241,7 +260,10 @@ def draw_character(pose):
         else:
             dh.rectangle([hx + 4, hy - 1, hx + 6, hy + 2], fill=(252, 252, 252, 255))
             dh.rectangle([hx + 6, hy, hx + 7, hy + 2], fill=OUTLINE)
-        dh.line([hx + 3, hy - 3, hx + 8, hy - 3], fill=HAIR_SH)          # sobrancelha
+            if v["lashes"]:
+                dh.point((hx + 7, hy - 1), fill=OUTLINE)
+                dh.point((hx + 8, hy - 2), fill=OUTLINE)
+        dh.line([hx + 3, hy - 3, hx + 8, hy - 3], fill=v["hair_sh"])     # sobrancelha
         dh.arc([hx + 2, hy + 3, hx + 9, hy + 8], 0, 180, fill=SKIN_DK)   # sorriso
     # nariz e orelha
     dh.rectangle([hx + 10, hy + 1, hx + 11, hy + 3], fill=SKIN_SH)
@@ -262,17 +284,17 @@ def draw_character(pose):
         brush(df, (shx, shy), elb, 5, SKIN)
         brush(df, elb, hnd, 4, SKIN)
         df.ellipse([hnd[0] - 3, hnd[1] - 3, hnd[0] + 3, hnd[1] + 3], fill=SKIN_HI)
-        sleeve_toward(dsf, (shx, shy), elb, 6, SHIRT, SHIRT_HI)
+        sleeve_toward(dsf, (shx, shy), elb, 6, v["shirt"])
     elif sad or idle:
         elb = (shx + 4, shy + 13)
         brush(df, (shx, shy), elb, 4, SKIN)
         df.ellipse([elb[0] - 3, elb[1] - 1, elb[0] + 3, elb[1] + 5], fill=SKIN)
-        sleeve_toward(dsf, (shx, shy), elb, 6, SHIRT, SHIRT_HI)
+        sleeve_toward(dsf, (shx, shy), elb, 6, v["shirt"])
     else:
         hnd = (shx + 2 + swing, shy + 13)
         brush(df, (shx, shy), hnd, 4, SKIN)
         df.ellipse([hnd[0] - 3, hnd[1] - 2, hnd[0] + 3, hnd[1] + 4], fill=SKIN)
-        sleeve_toward(dsf, (shx, shy), hnd, 6, SHIRT, SHIRT_HI)
+        sleeve_toward(dsf, (shx, shy), hnd, 6, v["shirt"])
 
     fig.alpha_composite(outline_part(armF, SKIN_DK))
     fig.alpha_composite(sleeveF)
@@ -338,14 +360,23 @@ def idle_pose(i):
     }
 
 
-def make_sheet():
+def make_sheet(variant):
+    v = VARIANTS[variant]
     rows = [walk_pose, run_pose, sad_pose, idle_pose]
     sheet = Image.new("RGBA", (FW * FRAMES, FH * len(rows)), (0, 0, 0, 0))
     for r, posef in enumerate(rows):
         for c in range(FRAMES):
-            sheet.alpha_composite(draw_character(posef(c)), (c * FW, r * FH))
-    sheet.save(os.path.join(OUT, "walker.png"))
+            sheet.alpha_composite(draw_character(posef(c), v), (c * FW, r * FH))
+    sheet.save(os.path.join(OUT, f"walker_{variant}.png"))
     return sheet
+
+
+def make_char_preview(sheet, variant):
+    """Frame parado ampliado 3x, para a escolha de personagem no cadastro."""
+    frame = sheet.crop((0, FH * 3, FW, FH * 4))
+    frame = frame.crop(frame.getbbox())
+    big = frame.resize((frame.width * 3, frame.height * 3), Image.NEAREST)
+    big.save(os.path.join(OUT, f"char_{variant}.png"))
 
 
 # ---------- cenario ----------
@@ -390,19 +421,15 @@ def make_hills():
     far = (150, 190, 150, 255)      # morro distante (mais claro = atmosfera)
     mid = (112, 164, 110, 255)
     near = (86, 140, 88, 255)
-    # camada distante
     d.ellipse([-60, 34, 140, 160], fill=far)
     d.ellipse([100, 22, 300, 170], fill=far)
     d.ellipse([240, 40, 420, 170], fill=far)
-    # camada media
     d.ellipse([-80, 56, 90, 190], fill=mid)
     d.ellipse([50, 48, 230, 200], fill=mid)
     d.ellipse([180, 58, 380, 200], fill=mid)
-    # camada proxima
     d.ellipse([-40, 76, 130, 220], fill=near)
     d.ellipse([90, 70, 300, 220], fill=near)
     d.ellipse([230, 80, 420, 220], fill=near)
-    # pinheiros com dois tons
     tree_d = (44, 92, 58, 255)
     tree_l = (62, 118, 70, 255)
     trunk = (94, 66, 44, 255)
@@ -422,7 +449,6 @@ def make_cloud(name, w, h, seed):
     rnd = random.Random(seed)
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # base achatada + lobos fofos, dois tons
     d.ellipse([2, h * 0.45, w - 2, h - 1], fill=(224, 230, 240, 255))
     lobes = []
     x = 4
@@ -476,7 +502,6 @@ def make_storm():
     d.ellipse([40, 8, 70, 28], fill=mid)
     d.ellipse([18, 2, 44, 16], fill=light)
     d.rectangle([6, 30, 70, 36], fill=dark)
-    # raio
     d.polygon([(34, 36), (42, 36), (38, 43), (44, 43), (31, 52), (36, 44), (30, 44)],
               fill=(255, 224, 96, 255))
     d.polygon([(35, 37), (39, 37), (36, 42), (37, 42), (34, 46)],
@@ -496,7 +521,7 @@ def make_icons(sheet):
                 col = (127, 196, 242)
             else:
                 k = (t - 0.72) / 0.28
-                col = (int(127 + (104 - 127) * k), int(196 + (176 - 196) * k),
+                col = (int(127 + (104 - 127) * k), int(196 + (168 - 196) * k),
                        int(242 + (84 - 242) * k))
             d.line([0, y, size, y], fill=col + (255,))
         scale = size * 0.86 / FH
@@ -506,15 +531,16 @@ def make_icons(sheet):
         img.save(os.path.join(OUT, f"icon-{size}.png"))
 
 
-def make_preview(sheet, ground, hills):
+def make_preview(sheets, ground):
     scale = 3
     w = FW * FRAMES * scale
-    h = (FH * 4 + 40) * scale
+    h = (FH * 4 * len(sheets) + 40) * scale
     prev = Image.new("RGBA", (w, h), (150, 205, 245, 255))
-    prev.alpha_composite(
-        sheet.resize((sheet.width * scale, sheet.height * scale), Image.NEAREST), (0, 0)
-    )
-    gy = FH * 4 * scale
+    for i, sheet in enumerate(sheets):
+        prev.alpha_composite(
+            sheet.resize((sheet.width * scale, sheet.height * scale), Image.NEAREST),
+            (0, i * FH * 4 * scale))
+    gy = FH * 4 * len(sheets) * scale
     g = ground.resize((ground.width * scale, ground.height * scale), Image.NEAREST)
     for x in range(0, w, g.width):
         prev.alpha_composite(g, (x, gy))
@@ -522,13 +548,20 @@ def make_preview(sheet, ground, hills):
 
 
 if __name__ == "__main__":
-    sheet = make_sheet()
+    sheet_m = make_sheet("m")
+    sheet_f = make_sheet("f")
+    make_char_preview(sheet_m, "m")
+    make_char_preview(sheet_f, "f")
     ground = make_ground()
-    hills = make_hills()
+    make_hills()
     make_cloud("cloud1.png", 64, 24, 11)
     make_cloud("cloud2.png", 44, 18, 29)
     make_sun()
     make_storm()
-    make_icons(sheet)
-    make_preview(sheet, ground, hills)
+    make_icons(sheet_m)
+    make_preview([sheet_m, sheet_f], ground)
+    # remove o sheet antigo de nome unico, se existir
+    old = os.path.join(OUT, "walker.png")
+    if os.path.exists(old):
+        os.remove(old)
     print("sprites gerados em", os.path.abspath(OUT))

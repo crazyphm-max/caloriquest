@@ -7,9 +7,9 @@
 //   sad  → cabisbaixo, andando PARA TRÁS, tempestade (regredindo)
 
 const GameScene = (() => {
-  const FW = 64, FH = 88; // tamanho do frame no sprite sheet
+  const FW = 80, FH = 96; // tamanho do frame no sprite sheet
   const FRAMES = 6;       // frames por animação
-  const CHAR_GROUND = 84; // linha do chão dentro do frame
+  const CHAR_GROUND = 92; // linha do chão dentro do frame
   const ROWS = { walk: 0, run: 1, slow: 0, sad: 2, idle: 3 };
   const SPEED = { run: 150, walk: 65, slow: 22, sad: -35, idle: 0 }; // px/s do chão
   const ANIM_FPS = { run: 15, walk: 9, slow: 4.5, sad: 4, idle: 3.5 };
@@ -155,7 +155,7 @@ const GameScene = (() => {
     // sombra de contato no chão
     ctx.fillStyle = `rgba(18,24,44,${0.28 - cur.dark * 0.25})`;
     ctx.beginPath();
-    ctx.ellipse(cx + 31 * scale, groundY + 5 * scale, 20 * scale, 4 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + 40 * scale, groundY + 5 * scale, 24 * scale, 4 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.save();

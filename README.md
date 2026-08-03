@@ -114,10 +114,20 @@ pip install Pillow
 python3 tools/generate_sprites.py
 ```
 
-Os personagens humanos vêm de arte gerada por IA e passam por
-`tools/process_ai_sprites.py`, que remove o fundo, recorta os 6 frames de cada
-animação, limpa respingos e normaliza escala e linha dos pés. Os mascotes e o
-cenário são desenhados por `tools/generate_mascots.py` e `tools/generate_sprites.py`.
+Os personagens humanos vêm de **vídeos** de animação gerados por IA (personagem
+animado no lugar, sobre fundo cinza) e passam por `tools/process_ai_videos.py`:
+
+```bash
+pip install Pillow numpy scipy imageio-ffmpeg
+python3 tools/process_ai_videos.py <pasta_com_os_mp4>
+```
+
+O script extrai os frames, remove o fundo e as sombras, mede o período do ciclo de
+animação comparando silhuetas (para os 6 frames fecharem um loop perfeito), alinha
+tudo pelo torso e pela linha dos pés e monta os sheets. Há também
+`tools/process_ai_sprites.py`, a versão equivalente para quando a arte vem em folhas
+de imagem em vez de vídeo. Os mascotes e o cenário são desenhados por
+`tools/generate_mascots.py` e `tools/generate_sprites.py`.
 
 ## Notas de cálculo
 

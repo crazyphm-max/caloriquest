@@ -89,10 +89,15 @@ def foreground_mask(rgb, bg=None):
     shadow = (sat < 30) & (mx < bg_lum - 8) & (mx > 42)
     removable = (dist < 24) | shadow
 
-    # O contorno preto do desenho e uma barreira: sem ele, o cinza que sombreia
-    # o interior de um tenis branco parece fundo e o preenchimento vaza para
-    # dentro da peca, comendo o pe.
-    removable &= ~(mx < 120)
+    # O contorno do desenho e uma barreira contra o vazamento. Nao basta
+    # "pixel escuro": a sombra projetada tambem e escura, e vira-la barreira
+    # deixaria a sombra grudada. O que separa os dois e o CONTRASTE LOCAL — o
+    # contorno e uma linha entre claro e escuro, a sombra e uma area plana.
+    local_range = (ndimage.maximum_filter(mx, size=3)
+                   - ndimage.minimum_filter(mx, size=3))
+    outline = (mx < 155) & (local_range > 35)
+    outline = ndimage.binary_closing(outline, np.ones((3, 3)))
+    removable &= ~outline
 
     # So e fundo o que ALCANCA a borda da imagem por dentro de `removable`.
     seeds = np.zeros(removable.shape, dtype=bool)
@@ -100,25 +105,26 @@ def foreground_mask(rgb, bg=None):
     seeds &= removable
     mask = ~ndimage.binary_propagation(seeds, mask=removable)
 
-    # Bolsoes de fundo totalmente cercados pelo corpo (o vao entre as pernas,
-    # o vao do braco) nunca sao alcancados pela borda. Tira todo pixel cor de
-    # fundo e deixa o preenchimento seguinte devolver so os pequenos.
-    mask &= ~((dist < 24) & (sat < 30))
+    # Bolsoes de fundo cercados pelo corpo (o vao entre as pernas, o vao do
+    # braco) nunca sao alcancados pela borda. So tira o que for MUITO parecido
+    # com o fundo: um tenis cinza-claro sobre fundo claro tem pixels de cor
+    # quase identica, e um limiar generoso aqui esburaca o calcado.
+    mask &= ~((dist < 12) & (sat < 12))
 
-    # Buracos: preenche SO os pequenos (interior de tenis, vao da manga). O vao
-    # entre as pernas tambem e um buraco fechado — e preencher aquilo colava um
-    # bloco de fundo cinza no personagem.
+    # Devolve os vazios que sobraram decidindo pela COR de dentro: o interior
+    # de um tenis nao e cor de fundo, o vao entre as pernas e.
     filled = ndimage.binary_fill_holes(mask)
     holes = filled & ~mask
     lab_h, nh = ndimage.label(holes)
     if nh:
         sizes_h = ndimage.sum(holes, lab_h, range(1, nh + 1))
-        limit = max(80.0, mask.sum() * 0.012)
-        small = np.zeros(mask.shape, dtype=bool)
+        tiny = max(60.0, mask.sum() * 0.004)
+        give_back = np.zeros(mask.shape, dtype=bool)
         for i, sz in enumerate(sizes_h, start=1):
-            if sz <= limit:
-                small |= lab_h == i
-        mask |= small
+            region = lab_h == i
+            if sz <= tiny or float(np.median(dist[region])) > 15:
+                give_back |= region
+        mask |= give_back
 
     # tira respingos soltos, sem erodir o corpo
     mask = ndimage.binary_closing(mask, np.ones((3, 3)))

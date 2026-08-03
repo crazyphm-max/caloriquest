@@ -60,26 +60,81 @@ def extract_frames(path, tmpdir):
             for f in files]
 
 
-def foreground_mask(rgb):
-    """Personagem = tudo que difere do cinza de fundo.
+def background_color(rgb):
+    """Cor do fundo: mediana das quatro bordas da imagem (o fundo dos videos e
+    um cinza chapado, entao a mediana das bordas acerta em cheio)."""
+    h, w, _ = rgb.shape
+    edges = np.concatenate([
+        rgb[:8].reshape(-1, 3), rgb[-8:].reshape(-1, 3),
+        rgb[:, :8].reshape(-1, 3), rgb[:, -8:].reshape(-1, 3),
+    ])
+    return np.median(edges, axis=0)
 
-    O fundo e cinza quase neutro e claro; sombras projetadas tambem sao cinza,
-    so que mais escuras. Entao: mantem o que tem cor (saturacao) OU o que e
-    bem escuro (contornos pretos do desenho)."""
+
+def foreground_mask(rgb, bg=None):
+    """Personagem = tudo que NAO e a cor do fundo.
+
+    Detectar o fundo (e nao "adivinhar" o personagem pela cor) e o que
+    preserva as partes brancas — tenis, meias, faixa de cabeca — que uma regra
+    baseada em saturacao comeria junto com o cinza."""
+    if bg is None:
+        bg = background_color(rgb)
+    dist = np.abs(rgb - bg).max(axis=2)
     mx = rgb.max(axis=2)
-    mn = rgb.min(axis=2)
-    sat = mx - mn                      # quanto o pixel tem de cor
-    dark = mx < 90                     # contorno preto do desenho
-    mask = (sat > 26) | dark
-    # limpa: fecha buracos, tira respingos, mantem o maior corpo
-    mask = ndimage.binary_closing(mask, np.ones((5, 5)))
-    mask = ndimage.binary_opening(mask, np.ones((3, 3)))
+    sat = mx - rgb.min(axis=2)
+    bg_lum = float(bg.max())
+
+    # o que PODE ser fundo: a propria cor do fundo ou a sombra projetada
+    # (cinza neutro, mais escura que o fundo, mas longe do preto do contorno)
+    shadow = (sat < 30) & (mx < bg_lum - 8) & (mx > 42)
+    removable = (dist < 24) | shadow
+
+    # O contorno preto do desenho e uma barreira: sem ele, o cinza que sombreia
+    # o interior de um tenis branco parece fundo e o preenchimento vaza para
+    # dentro da peca, comendo o pe.
+    removable &= ~(mx < 120)
+
+    # So e fundo o que ALCANCA a borda da imagem por dentro de `removable`.
+    seeds = np.zeros(removable.shape, dtype=bool)
+    seeds[0], seeds[-1], seeds[:, 0], seeds[:, -1] = True, True, True, True
+    seeds &= removable
+    mask = ~ndimage.binary_propagation(seeds, mask=removable)
+
+    # Bolsoes de fundo totalmente cercados pelo corpo (o vao entre as pernas,
+    # o vao do braco) nunca sao alcancados pela borda. Tira todo pixel cor de
+    # fundo e deixa o preenchimento seguinte devolver so os pequenos.
+    mask &= ~((dist < 24) & (sat < 30))
+
+    # Buracos: preenche SO os pequenos (interior de tenis, vao da manga). O vao
+    # entre as pernas tambem e um buraco fechado — e preencher aquilo colava um
+    # bloco de fundo cinza no personagem.
+    filled = ndimage.binary_fill_holes(mask)
+    holes = filled & ~mask
+    lab_h, nh = ndimage.label(holes)
+    if nh:
+        sizes_h = ndimage.sum(holes, lab_h, range(1, nh + 1))
+        limit = max(80.0, mask.sum() * 0.012)
+        small = np.zeros(mask.shape, dtype=bool)
+        for i, sz in enumerate(sizes_h, start=1):
+            if sz <= limit:
+                small |= lab_h == i
+        mask |= small
+
+    # tira respingos soltos, sem erodir o corpo
+    mask = ndimage.binary_closing(mask, np.ones((3, 3)))
     lab, n = ndimage.label(mask)
     if n == 0:
         return mask
     sizes = ndimage.sum(mask, lab, range(1, n + 1))
-    mask = lab == (np.argmax(sizes) + 1)
-    return ndimage.binary_fill_holes(mask)
+    keep = np.argmax(sizes) + 1
+    big = lab == keep
+    # pecas legitimas separadas pelo contorno (um tenis, o rabo de cavalo)
+    # voltam se forem grandes e estiverem encostadas no corpo
+    near = ndimage.binary_dilation(big, np.ones((7, 7)))
+    for i, sz in enumerate(sizes, start=1):
+        if i != keep and sz > 500 and (near & (lab == i)).any():
+            big |= lab == i
+    return big
 
 
 def cutout(rgb, mask):

@@ -5,6 +5,7 @@ const Sync = (() => {
   let enabled = false;
   let user = null;
   let timer = null;
+  let googleClientId = "";
 
   async function req(path, opts = {}) {
     return fetch(`api/${path}`, {
@@ -14,19 +15,16 @@ const Sync = (() => {
     });
   }
 
-  // Existe API neste servidor? Estou logado?
+  // Existe API neste servidor? Estou logado? O botão do Google está ligado?
+  // Tudo numa chamada só, para o app abrir rápido.
   async function detect() {
     try {
-      const r = await req("me");
-      if (r.ok) {
-        enabled = true;
-        user = await r.json();
-      } else if (r.status === 401) {
-        enabled = true;
-        user = null;
-      } else {
-        enabled = false;
-      }
+      const r = await req("session");
+      if (!r.ok) { enabled = false; return; }
+      const d = await r.json();
+      enabled = true;
+      user = d.user || null;
+      googleClientId = d.googleClientId || "";
     } catch {
       enabled = false;
     }
@@ -46,6 +44,19 @@ const Sync = (() => {
 
   const login = (email, password) => authCall("login", email, password);
   const register = (email, password) => authCall("register", email, password);
+
+  // Recebe o ID token que o botão do Google devolve e troca por uma sessão nossa
+  async function google(credential) {
+    const r = await req("google", {
+      method: "POST",
+      body: JSON.stringify({ credential }),
+    });
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}));
+      throw new Error(body.error || "Não deu certo — tenta de novo?");
+    }
+    user = await r.json();
+  }
 
   async function logout() {
     try { await req("logout", { method: "POST" }); } catch { /* offline: ok */ }
@@ -73,8 +84,9 @@ const Sync = (() => {
   }
 
   return {
-    detect, login, register, logout, pull, pushSoon,
+    detect, login, register, google, logout, pull, pushSoon,
     get enabled() { return enabled; },
     get user() { return user; },
+    get googleClientId() { return googleClientId; },
   };
 })();

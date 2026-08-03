@@ -95,9 +95,12 @@ sugestão de caminhada, e por aí vai.
 ## Nuvem: login e dados por pessoa (Cloudflare)
 
 O app tem uma API pronta para **Cloudflare Pages + Functions + D1** (grátis):
-cada pessoa cria sua conta (e-mail + senha), os dados ficam no banco D1 e
-sincronizam entre aparelhos. Sem a API (GitHub Pages, arquivo local), o app
-funciona em modo local, como sempre.
+cada pessoa entra com **Google** ou com **e-mail + senha**, os dados ficam no
+banco D1 e sincronizam entre aparelhos. Sem a API (GitHub Pages, arquivo local),
+o app funciona em modo local, como sempre.
+
+Se a pessoa já tinha conta por senha e depois clica no botão do Google com o
+mesmo e-mail, é a mesma conta — o histórico continua lá.
 
 ### Publicar sem instalar nada (só o navegador)
 
@@ -119,6 +122,29 @@ sozinho, cria as tabelas e publica. No fim do log ele mostra o endereço. Dali e
 diante, todo push republica automaticamente.
 
 O site sobe em `https://caloriquest.pages.dev` (dá pra ligar domínio próprio).
+
+### Ligar o "Entrar com Google"
+
+Opcional — sem isso o app entra só por e-mail e senha, e o botão nem aparece.
+
+1. https://console.cloud.google.com → crie um projeto (nome livre).
+2. *APIs & Services → OAuth consent screen*: tipo **External**, preencha nome do
+   app e e-mail, e em *Test users* adicione os e-mails de quem vai usar (assim
+   não precisa passar pela revisão do Google).
+3. *APIs & Services → Credentials → Create Credentials → OAuth client ID*, tipo
+   **Web application**. Em **Authorized JavaScript origins** coloque
+   `https://caloriquest.pages.dev` (e o domínio próprio, se tiver).
+   Não precisa preencher redirect URIs — o app usa o botão do Google, sem
+   redirecionamento.
+4. Copie o **Client ID** e cadastre no GitHub como o segredo `GOOGLE_CLIENT_ID`.
+5. Rode o workflow de novo.
+
+A validação do token acontece no servidor, conferindo a assinatura com as chaves
+públicas do Google. Para testar essa parte sem depender de internet:
+
+```bash
+node tools/test_google_login.mjs
+```
 
 ### Alternativa: pelo terminal
 

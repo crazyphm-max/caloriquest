@@ -65,6 +65,16 @@ body {
 }
 .auth-msg { color: var(--red); font-size: 0.85rem; text-align: center; min-height: 1.2em; margin: 0; }
 
+.auth-google { display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 4px 0 14px; }
+/* linha com o "ou" no meio, sem tabela e sem gambiarra de pseudo-elemento largo */
+.auth-sep {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  color: var(--muted); font-size: 0.78rem;
+}
+.auth-sep::before, .auth-sep::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+
 .char-preview {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 6px 0 2px;

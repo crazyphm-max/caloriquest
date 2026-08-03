@@ -4,7 +4,7 @@
 // offline) e, em paralelo, busca a versão nova na rede e guarda para a próxima
 // vez. Assim uma troca de sprite ou de código chega ao aparelho sozinha, sem
 // depender de eu lembrar de mudar a versão do cache.
-const CACHE = "caloriquest-v9";
+const CACHE = "caloriquest-v10";
 const ASSETS = [
   "./",
   "./index.html",

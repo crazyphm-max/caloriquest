@@ -1,6 +1,8 @@
 // API do CaloriQuest — Cloudflare Pages Functions + banco D1.
-// Rotas: POST register | POST login | POST logout | GET me | GET state | PUT state
-// Sessão via cookie HttpOnly; senha com PBKDF2 (100 mil iterações, SHA-256).
+// Rotas públicas:  GET session | POST register | POST login | POST google | POST logout
+// Rotas logadas:   GET me | GET state | PUT state
+// Sessão via cookie HttpOnly; senha com PBKDF2 (100 mil iterações, SHA-256);
+// entrada pelo Google validando o ID token com as chaves públicas dele.
 
 const enc = new TextEncoder();
 const SESSION_DAYS = 180;
@@ -48,7 +50,7 @@ async function currentUser(request, env) {
   const token = getCookie(request, "cq_session");
   if (!token) return null;
   return env.DB.prepare(
-    `SELECT u.id, u.email FROM sessions s
+    `SELECT u.id, u.email, u.name FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token = ? AND s.expires_at > datetime('now')`
   ).bind(token).first();
@@ -74,6 +76,109 @@ async function readCredentials(request) {
   if (password.length < 6)
     return { error: json({ error: "A senha precisa ter pelo menos 6 caracteres" }, 400) };
   return { email, password };
+}
+
+// ===== Entrar com o Google =====
+// O botão do Google devolve um ID token (um JWT assinado por ele). A gente
+// confere a assinatura com as chaves públicas do próprio Google — por isso não
+// existe client_secret aqui, nem redirecionamento: o usuário nunca sai do app.
+const GOOGLE_CERTS = "https://www.googleapis.com/oauth2/v3/certs";
+const GOOGLE_ISS = ["accounts.google.com", "https://accounts.google.com"];
+let jwks = { keys: [], at: 0 };
+
+function b64url(s) {
+  const b = s.replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b + "=".repeat((4 - (b.length % 4)) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+const b64urlJson = (s) => JSON.parse(new TextDecoder().decode(b64url(s)));
+
+// As chaves do Google giram de tempos em tempos; guardamos por 1h e buscamos de
+// novo na hora em que aparece um kid desconhecido.
+async function googleKey(kid) {
+  const velho = Date.now() - jwks.at > 3600e3;
+  if (velho || !jwks.keys.some((k) => k.kid === kid)) {
+    const r = await fetch(GOOGLE_CERTS);
+    if (!r.ok) throw new Error("certs");
+    jwks = { keys: (await r.json()).keys || [], at: Date.now() };
+  }
+  return jwks.keys.find((k) => k.kid === kid);
+}
+
+export async function verifyGoogleToken(idToken, clientId) {
+  const parts = String(idToken || "").split(".");
+  if (parts.length !== 3) throw new Error("formato");
+  const header = b64urlJson(parts[0]);
+  const payload = b64urlJson(parts[1]);
+
+  const jwk = await googleKey(header.kid);
+  if (!jwk) throw new Error("kid desconhecido");
+  const key = await crypto.subtle.importKey(
+    "jwk", { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: "RS256", ext: true },
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]
+  );
+  const ok = await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5", key, b64url(parts[2]),
+    enc.encode(`${parts[0]}.${parts[1]}`)
+  );
+  if (!ok) throw new Error("assinatura");
+
+  if (payload.aud !== clientId) throw new Error("aud");
+  if (!GOOGLE_ISS.includes(payload.iss)) throw new Error("iss");
+  if (!payload.exp || payload.exp * 1000 < Date.now()) throw new Error("expirado");
+  if (!payload.email || payload.email_verified === false) throw new Error("e-mail");
+  return payload;
+}
+
+async function handleGoogle(request, env) {
+  const clientId = env.GOOGLE_CLIENT_ID;
+  if (!clientId) return json({ error: "Login com Google não está configurado" }, 501);
+
+  const body = await request.json().catch(() => null);
+  let p;
+  try {
+    p = await verifyGoogleToken(body?.credential, clientId);
+  } catch {
+    return json({ error: "Não consegui validar sua conta Google — tenta de novo?" }, 401);
+  }
+
+  const email = p.email.toLowerCase();
+  // Mesmo e-mail que já tinha conta por senha? Vira a mesma conta, com os dados
+  // que já existem — ninguém quer descobrir que perdeu o histórico por ter
+  // clicado num botão diferente.
+  let user = await env.DB.prepare(
+    "SELECT id, email FROM users WHERE google_sub = ? OR email = ?"
+  ).bind(p.sub, email).first();
+
+  if (user) {
+    await env.DB.prepare(
+      "UPDATE users SET google_sub = ?, name = COALESCE(name, ?) WHERE id = ?"
+    ).bind(p.sub, p.name || null, user.id).run();
+  } else {
+    // pass_hash/salt vão como texto vazio, não NULL: em bancos criados antes
+    // do login com Google essas colunas ainda são NOT NULL. Vazio nunca casa
+    // com um hash PBKDF2, então continua impossível entrar por senha aqui.
+    const res = await env.DB.prepare(
+      "INSERT INTO users (email, google_sub, name, pass_hash, salt) VALUES (?, ?, ?, '', '')"
+    ).bind(email, p.sub, p.name || null).run();
+    user = { id: res.meta.last_row_id, email };
+  }
+
+  const token = await createSession(env, user.id);
+  return json({ email, name: p.name || null }, 200, {
+    "Set-Cookie": sessionCookie(token, SESSION_DAYS * 86400),
+  });
+}
+
+// Uma chamada só no boot: quem está logado + se o botão do Google está ligado.
+async function handleSession(request, env) {
+  const user = await currentUser(request, env);
+  return json({
+    user: user ? { email: user.email, name: user.name || null } : null,
+    googleClientId: env.GOOGLE_CLIENT_ID || "",
+  });
 }
 
 async function handleRegister(request, env) {
@@ -103,6 +208,8 @@ async function handleLogin(request, env) {
   ).bind(cred.email).first();
   const wrong = json({ error: "E-mail ou senha incorretos" }, 401);
   if (!user) return wrong;
+  if (!user.pass_hash)
+    return json({ error: "Essa conta entra pelo botão do Google" }, 401);
   const hash = await hashPassword(cred.password, user.salt);
   if (hash !== user.pass_hash) return wrong;
 
@@ -145,14 +252,18 @@ export async function onRequest(context) {
   const method = request.method;
 
   try {
+    if (method === "GET" && path === "session") return await handleSession(request, env);
     if (method === "POST" && path === "register") return await handleRegister(request, env);
     if (method === "POST" && path === "login") return await handleLogin(request, env);
+    if (method === "POST" && path === "google") return await handleGoogle(request, env);
     if (method === "POST" && path === "logout") return await handleLogout(request, env);
 
     // daqui pra baixo, precisa estar logado
     const user = await currentUser(request, env);
     if (method === "GET" && path === "me")
-      return user ? json({ email: user.email }) : json({ error: "Não autenticado" }, 401);
+      return user
+        ? json({ email: user.email, name: user.name || null })
+        : json({ error: "Não autenticado" }, 401);
     if (!user) return json({ error: "Não autenticado" }, 401);
     if (method === "GET" && path === "state") return await handleGetState(user, env);
     if (method === "PUT" && path === "state") return await handlePutState(request, user, env);

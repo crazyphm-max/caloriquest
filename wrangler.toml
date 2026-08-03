@@ -7,6 +7,12 @@ name = "caloriquest"
 compatibility_date = "2026-08-01"
 pages_build_output_dir = "."
 
+# O Client ID do Google é um valor público (fica visível na página de qualquer
+# site que use "Entrar com Google"). Quem preenche é o workflow do GitHub, a
+# partir do segredo GOOGLE_CLIENT_ID — vazio aqui só desliga o botão.
+[vars]
+GOOGLE_CLIENT_ID = ""
+
 [[d1_databases]]
 binding = "DB"
 database_name = "caloriquest-db"

@@ -7,6 +7,10 @@ name: Publicar no Cloudflare (login + banco)
 # Settings → Secrets and variables → Actions → New repository secret:
 #   CLOUDFLARE_API_TOKEN   token criado em dash.cloudflare.com → My Profile → API Tokens
 #   CLOUDFLARE_ACCOUNT_ID  ID da conta (aparece na URL do painel e na aba Workers & Pages)
+#
+# Opcional, para ligar o "Entrar com Google":
+#   GOOGLE_CLIENT_ID       Client ID OAuth criado no console.cloud.google.com
+#                          (é um valor público; sem ele o botão só não aparece)
 
 on:
   workflow_dispatch:
@@ -91,6 +95,34 @@ jobs:
           echo "database_id encontrado: $ID"
           sed -i "s|database_id = \".*\"|database_id = \"$ID\"|" wrangler.toml
           grep database_id wrangler.toml
+
+      - name: Gravar o Client ID do Google no wrangler.toml
+        if: steps.check.outputs.ok == 'true'
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        run: |
+          if [ -n "$GOOGLE_CLIENT_ID" ]; then
+            sed -i "s|^GOOGLE_CLIENT_ID = \".*\"|GOOGLE_CLIENT_ID = \"$GOOGLE_CLIENT_ID\"|" wrangler.toml
+            echo "Entrar com Google: ligado"
+          else
+            echo "::notice::Sem o segredo GOOGLE_CLIENT_ID — o botão do Google fica escondido."
+          fi
+
+      # Precisa vir ANTES do schema.sql: num banco antigo a tabela users já
+      # existe sem estas colunas, o CREATE TABLE IF NOT EXISTS não mexe nela, e
+      # aí o índice de google_sub falharia. Num banco novo estes ALTER falham
+      # (não há tabela ainda) e não tem problema — o schema.sql cria tudo certo.
+      - name: Atualizar bancos antigos (colunas do login com Google)
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          for col in "google_sub TEXT" "name TEXT"; do
+            if npx --yes wrangler@4 d1 execute "$DB_NAME" --remote --yes \
+                 --command "ALTER TABLE users ADD COLUMN $col" >/dev/null 2>&1; then
+              echo "coluna adicionada: $col"
+            else
+              echo "nada a fazer para: $col"
+            fi
+          done
 
       - name: Criar as tabelas (usuários, sessões e dados)
         if: steps.check.outputs.ok == 'true'

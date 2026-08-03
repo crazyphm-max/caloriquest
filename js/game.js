@@ -31,6 +31,7 @@ const GameScene = (() => {
   // mascotes: {on, stage} — stage 0/1/2 conforme proteína (cão) e água (gato)
   let pets = { dog: { on: false, stage: 1 }, cat: { on: false, stage: 1 } };
   let bubble = null;        // {who, text, until} balão de dica
+  let hud = { fast: null, gym: null }; // relógio de jejum e pesinho do treino
   let mood = "walk";
   let cur = { top: [...SKY.walk.top], bot: [...SKY.walk.bot], dark: 0, rain: 0, speed: SPEED.walk, flip: 0 };
   let groundX = 0, hillsX = 0, cloudX = 0;
@@ -82,9 +83,20 @@ const GameScene = (() => {
     if (stage !== undefined) pets[who].stage = Math.max(0, Math.min(2, stage));
   }
 
-  // Mostra um balão de fala por alguns segundos
+  // Mostra um balão de fala por alguns segundos.
+  // `who` pode ser um mascote ("dog"/"cat") ou "fast" — o relógio do jejum.
   function say(who, text, seconds = 7) {
     bubble = { who, text, until: performance.now() + seconds * 1000 };
+  }
+
+  // Relógio de jejum no canto da cena: {text, pct, done} ou null
+  function setFastHud(data) {
+    hud.fast = data || null;
+  }
+
+  // Pesinho com as calorias do treino do dia: {kcal, min} ou null
+  function setGymHud(data) {
+    hud.gym = data && data.kcal > 0 ? data : null;
   }
 
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -184,6 +196,9 @@ const GameScene = (() => {
     // mascotes: caminham atrás do dono, um pouco menores
     drawPets(scale, cx, groundY);
 
+    // painéis do canto (relógio de jejum e pesinho do treino)
+    drawHud(W, H);
+
     // balão de dica
     drawBubble(scale, cx, groundY, W, H);
 
@@ -234,13 +249,122 @@ const GameScene = (() => {
     }
   }
 
+  // Placa de madeira no canto da cena, no espírito de HUD de jogo
+  function hudPlate(x, y, w, h) {
+    ctx.fillStyle = "rgba(20, 24, 40, 0.78)";
+    ctx.strokeStyle = "rgba(255,255,255,0.28)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 8);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Relógio analógico simples: mostra o avanço do jejum na volta do ponteiro
+  function drawClockFace(cx, cy, r, pct, done) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = done ? "#2f9e58" : "#f2f5fb";
+    ctx.fill();
+    ctx.strokeStyle = done ? "#1e6e3c" : "#22283c";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // fatia preenchida = progresso até a meta
+    if (pct > 0) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r - 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, pct));
+      ctx.closePath();
+      ctx.fillStyle = done ? "rgba(255,255,255,0.5)" : "rgba(224,112,60,0.75)";
+      ctx.fill();
+    }
+    // ponteiro
+    const ang = -Math.PI / 2 + Math.PI * 2 * (pct % 1);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(ang) * (r - 3), cy + Math.sin(ang) * (r - 3));
+    ctx.strokeStyle = done ? "#fff" : "#22283c";
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = done ? "#fff" : "#22283c";
+    ctx.fill();
+  }
+
+  // Halter visto de lado: barra central e duas anilhas
+  function drawDumbbell(cx, cy, s) {
+    const bar = 7 * s, plateW = 3.2 * s, plateH = 9 * s, innerH = 13 * s;
+    ctx.strokeStyle = "#161b2e";
+    ctx.lineWidth = 1.4;
+    // barra
+    ctx.fillStyle = "#cfd7e8";
+    ctx.fillRect(cx - bar / 2, cy - 1.4 * s, bar, 2.8 * s);
+    ctx.strokeRect(cx - bar / 2, cy - 1.4 * s, bar, 2.8 * s);
+    // anilhas: uma menor por fora, uma maior por dentro (dá volume)
+    for (const dir of [-1, 1]) {
+      const xIn = cx + dir * (bar / 2) - (dir < 0 ? plateW : 0);
+      ctx.fillStyle = "#4f5b7d";
+      ctx.fillRect(xIn, cy - innerH / 2, plateW, innerH);
+      ctx.strokeRect(xIn, cy - innerH / 2, plateW, innerH);
+      const xOut = cx + dir * (bar / 2 + plateW) - (dir < 0 ? plateW * 0.9 : 0);
+      ctx.fillStyle = "#3c4666";
+      ctx.fillRect(xOut, cy - plateH / 2, plateW * 0.9, plateH);
+      ctx.strokeRect(xOut, cy - plateH / 2, plateW * 0.9, plateH);
+      // brilho na anilha de dentro
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      ctx.fillRect(xIn + 0.7 * s, cy - innerH / 2 + 1.4 * s, 1 * s, innerH * 0.3);
+    }
+  }
+
+  function drawHud(W, H) {
+    const pad = 10;
+    let y = 46; // abaixo da etiqueta de ritmo
+    ctx.textBaseline = "middle";
+
+    if (hud.fast) {
+      // largura acompanha o texto da fase, para nunca cortar
+      ctx.font = "600 9.5px system-ui, sans-serif";
+      const w = Math.max(120, 44 + ctx.measureText(hud.fast.label).width + 10);
+      const h = 36;
+      hudPlate(pad, y, w, h);
+      drawClockFace(pad + 20, y + h / 2, 12, hud.fast.pct, hud.fast.done);
+      ctx.fillStyle = "#fff";
+      ctx.font = "700 15px system-ui, -apple-system, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(hud.fast.text, pad + 38, y + h / 2 - 5);
+      ctx.font = "600 9.5px system-ui, sans-serif";
+      ctx.fillStyle = hud.fast.done ? "#8ce0a8" : "rgba(255,255,255,0.75)";
+      ctx.fillText(hud.fast.label, pad + 38, y + h / 2 + 10);
+      y += h + 6;
+    }
+
+    if (hud.gym) {
+      const w = 112, h = 34;
+      hudPlate(pad, y, w, h);
+      drawDumbbell(pad + 20, y + h / 2, 1.5);
+      ctx.fillStyle = "#fff";
+      ctx.font = "700 14px system-ui, -apple-system, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(`−${hud.gym.kcal}`, pad + 40, y + h / 2 - 5);
+      ctx.font = "600 9.5px system-ui, sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.fillText(`kcal · ${hud.gym.min} min`, pad + 40, y + h / 2 + 10);
+    }
+    ctx.textBaseline = "alphabetic";
+  }
+
   // Caixa de fala do mascote no rodapé da cena (estilo diálogo de RPG):
   // no celular sobra pouca largura, então uma faixa lê melhor que um balão.
   function drawBubble(scale, cx, groundY, W, H) {
     if (!bubble) return;
     if (performance.now() > bubble.until) { bubble = null; return; }
-    const pet = pets[bubble.who];
-    if (!pet || !pet.on) { bubble = null; return; }
+    // mensagens do relógio de jejum não dependem dos mascotes
+    if (bubble.who !== "fast") {
+      const pet = pets[bubble.who];
+      if (!pet || !pet.on) { bubble = null; return; }
+    }
 
     const pad = 10;
     const boxW = W - pad * 2;
@@ -280,7 +404,8 @@ const GameScene = (() => {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#fff";
-    ctx.fillText(bubble.who === "dog" ? "🐶" : "🐱", pad + 6 + iconW / 2, by + boxH / 2);
+    const icon = bubble.who === "dog" ? "🐶" : bubble.who === "cat" ? "🐱" : "⏱️";
+    ctx.fillText(icon, pad + 6 + iconW / 2, by + boxH / 2);
 
     ctx.font = "600 12.5px system-ui, -apple-system, sans-serif";
     ctx.textAlign = "left";
@@ -318,5 +443,5 @@ const GameScene = (() => {
     ctx.stroke();
   }
 
-  return { init, setMood, setVariant, setPet, say };
+  return { init, setMood, setVariant, setPet, say, setFastHud, setGymHud };
 })();

@@ -449,7 +449,7 @@ function setupWater() {
 
 // ===== Mascotes: liga/desliga e rodízio de dicas =====
 let tipTimer = null;
-let lastTip = { dog: null, cat: null };
+let lastTip = { dog: null, cat: null, fast: null };
 let tipTurn = 0;
 
 function setupPets() {
@@ -468,8 +468,18 @@ function setupPets() {
   scheduleTips();
 }
 
-// Uma dica por vez, alternando entre os mascotes ativos
+// Uma fala por vez, alternando entre os mascotes ativos e o relógio de jejum.
+// O relógio fala mesmo com os mascotes desligados: enquanto há jejum em
+// andamento, ele conta o que já foi conquistado, o que vem e — de vez em
+// quando — lembra de encerrar se a pessoa passar mal.
 function sayTip(who) {
+  if (who === "fast") {
+    const txt = Fasting.nextMessage(state, lastTip.fast);
+    if (!txt) return;
+    lastTip.fast = txt;
+    GameScene.say("fast", txt, 9);
+    return;
+  }
   if (!state.pets.tips || !state.pets[who]) return;
   const txt = MascotLogic.nextTip(state, who, lastTip[who]);
   if (!txt) return;
@@ -477,14 +487,21 @@ function sayTip(who) {
   GameScene.say(who, txt, 8);
 }
 
+function speakers() {
+  const list = [];
+  if (Fasting.current(state)) list.push("fast");
+  if (state.pets.tips) list.push(...["dog", "cat"].filter((w) => state.pets[w]));
+  return list;
+}
+
 function scheduleTips() {
   clearInterval(tipTimer);
-  if (!state.pets.tips) return;
   const speak = () => {
-    const active = ["dog", "cat"].filter((w) => state.pets[w]);
+    const active = speakers();
     if (!active.length) return;
     sayTip(active[tipTurn++ % active.length]);
   };
+  if (!speakers().length) return;
   setTimeout(speak, 3000);       // a primeira logo depois de abrir
   tipTimer = setInterval(speak, 25000);
 }
@@ -650,6 +667,8 @@ function setupFasting() {
     saveState();
     addXp(10, "jejum iniciado");
     renderFasting();
+    scheduleTips();          // o relógio entra no rodízio de falas
+    setTimeout(() => sayTip("fast"), 1200);
     toast(`⏱️ Jejum de ${goal}h começou!`);
   };
 
@@ -663,6 +682,7 @@ function setupFasting() {
       toast(done ? `🏆 ${rec.hours}h — meta batida!` : `Jejum encerrado com ${rec.hours}h`);
     }
     renderFasting();
+    scheduleTips();
     document.getElementById("fast-start-input").value = localNow();
   };
 
@@ -722,6 +742,8 @@ function tickFasting() {
       : `Meta batida! Você já está <b>${(hours - goal).toFixed(1)}h além</b> 🏆`;
   }
 
+  updateSceneHud();
+
   // marca as fases alcançadas sem recriar a lista
   document.querySelectorAll("#fast-phase-list .phase").forEach((el) => {
     const h = +el.dataset.h;
@@ -730,6 +752,30 @@ function tickFasting() {
     const chk = el.querySelector(".phase-check");
     if (chk) chk.textContent = active && hours >= h ? "✓" : "";
   });
+}
+
+// Alimenta os painéis desenhados dentro da cena: relógio de jejum e pesinho
+// com o gasto do treino. Chamada a cada segundo enquanto há jejum, e sempre
+// que o treino muda.
+function updateSceneHud() {
+  const f = Fasting.current(state);
+  if (f) {
+    const ms = Fasting.elapsedMs(state);
+    const h = ms / 3600000;
+    const pct = h / f.goal;
+    const { current: phase } = Fasting.phaseAt(h);
+    GameScene.setFastHud({
+      text: Fasting.fmtDuration(ms).slice(0, 5), // HH:MM cabe melhor na placa
+      label: pct >= 1 ? `meta ${f.goal}h batida!` : `${phase.title.toLowerCase()}`,
+      pct,
+      done: pct >= 1,
+    });
+  } else {
+    GameScene.setFastHud(null);
+  }
+
+  const gs = Gym.summary(today());
+  GameScene.setGymHud(gs.kcal > 0 ? { kcal: gs.kcal, min: gs.total } : null);
 }
 
 function renderFastPhases() {
@@ -894,6 +940,7 @@ function pickExercise(ex) {
 function renderGym() {
   const day = today();
   const s = Gym.summary(day);
+  GameScene.setGymHud(s.kcal > 0 ? { kcal: s.kcal, min: s.total } : null);
   document.getElementById("gym-min").textContent = s.total;
   document.getElementById("gym-kcal").textContent = s.kcal;
   document.getElementById("gym-vol").textContent =
@@ -1082,8 +1129,11 @@ function startApp() {
   setupProgress();
   setupTabs();
   renderAll();
+  updateSceneHud();
   // reavalia o clima de tempos em tempos (o dia passa, o gasto proporcional muda)
   setInterval(updateMood, 60000);
+  // com jejum ativo o relógio da cena precisa andar mesmo fora da aba Jejum
+  setInterval(() => { if (Fasting.current(state)) updateSceneHud(); }, 1000);
 }
 
 // ===== Boot =====

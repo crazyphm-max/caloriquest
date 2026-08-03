@@ -50,6 +50,13 @@ Tocando no relógio, a linha do tempo do que acontece no corpo: queda da insulin
 hormônio do crescimento (14h), autofagia (16h), cetose firme (18h) e por aí vai.
 O que você já conquistou aparece marcado, o que vem pela frente fica esmaecido.
 
+Com jejum em andamento, um **relógio aparece no canto da cena** mostrando o tempo
+e a fase atual, e o relógio "fala" durante a caminhada: o que você já conquistou,
+quanto falta para a próxima fase e — de tempos em tempos, com mais frequência
+quanto mais longo o jejum — o lembrete de encerrar se bater mal-estar. Quando
+você treina, um **pesinho aparece logo abaixo** com as calorias gastas na
+academia.
+
 Ao encerrar, o jejum entra no histórico com estatísticas: total, metas
 concluídas, maior jejum, média dos últimos 7 dias e dias seguidos.
 

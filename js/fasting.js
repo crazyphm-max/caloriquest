@@ -124,7 +124,57 @@ const Fasting = (() => {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
+  // ===== Mensagens que o relógio manda durante o jejum =====
+  // Alternam entre o que já foi conquistado, o que vem pela frente e, de vez
+  // em quando, o lembrete de segurança — que aparece com mais frequência
+  // quanto mais longo estiver o jejum.
+  function messages(state) {
+    const f = current(state);
+    if (!f) return [];
+    const h = elapsedHours(state);
+    const { current: cur, next } = phaseAt(h);
+    const out = [];
+
+    // o que já rendeu
+    if (h >= 1) out.push(`${cur.icon} ${Math.floor(h)}h de jejum: ${cur.txt}`);
+    // o que está por vir
+    if (next) {
+      const falta = next.h - h;
+      const txt = falta < 1
+        ? `Falta menos de 1 hora para ${next.title.toLowerCase()} ${next.icon}`
+        : `Faltam ${Math.ceil(falta)}h para ${next.title.toLowerCase()} ${next.icon}`;
+      out.push(txt);
+    }
+    // meta
+    const paraMeta = f.goal - h;
+    if (paraMeta > 0 && paraMeta <= 2)
+      out.push(`Quase lá! Faltam ${Math.ceil(paraMeta * 60)} min para fechar seu ${f.goal}h 🏁`);
+    else if (paraMeta <= 0)
+      out.push(`Meta de ${f.goal}h batida! Cada hora a mais é bônus 🏆`);
+
+    // incentivo
+    out.push("Enquanto você jejua, a gordura vira energia. É o corpo trabalhando pra você 🔥");
+    if (h >= 12) out.push("Aguentou até aqui? A parte difícil já passou — a fome vem em ondas e essa já foi 💪");
+
+    // segurança (repetida mais vezes em jejuns longos, para ter mais chance de sair)
+    const aviso = "Sentiu tontura, fraqueza ou mal-estar? Encerre o jejum e coma algo. Sem culpa — saúde primeiro 💙";
+    const vezes = h >= 20 ? 3 : h >= 16 ? 2 : 1;
+    for (let i = 0; i < vezes; i++) out.push(aviso);
+    if (h >= 18) out.push("Jejum longo pede atenção: beba água, e se bater mal-estar, pare 💧");
+
+    return out;
+  }
+
+  function nextMessage(state, lastTxt) {
+    const pool = messages(state);
+    if (!pool.length) return null;
+    const fresh = pool.filter((m) => m !== lastTxt);
+    const choices = fresh.length ? fresh : pool;
+    return choices[Math.floor(Math.random() * choices.length)];
+  }
+
   return {
     current, elapsedMs, elapsedHours, phaseAt, start, stop, stats, fmtDuration,
+    messages, nextMessage,
   };
 })();

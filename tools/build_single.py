@@ -45,9 +45,10 @@ def build():
     game = game.replace('loadImage(base + n + ".png")', "loadImage(SPRITE_DATA[n])")
 
     # app.js: sem service worker; previews de personagem viram data URI
-    app = app.replace('''  if ("serviceWorker" in navigator)
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-''', "")
+    # versao de arquivo unico nao tem service worker
+    sw_start = app.index("function setupServiceWorker()")
+    sw_end = app.index("async function boot()")
+    app = app[:sw_start] + "function setupServiceWorker() {}\n\n" + app[sw_end:]
     app = app.replace(
         'const CHAR_PREVIEWS = { m: "assets/sprites/char_m.png", f: "assets/sprites/char_f.png" };',
         f'const CHAR_PREVIEWS = {{ m: SPRITE_DATA.char_m, f: SPRITE_DATA.char_f }};')

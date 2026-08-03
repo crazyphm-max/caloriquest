@@ -759,9 +759,26 @@ async function enterApp() {
   else setupOnboarding();
 }
 
+function setupServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  // Se um service worker novo assumir enquanto o app está aberto, recarrega
+  // uma vez para pegar código e sprites atualizados. Sem isso o aparelho fica
+  // preso na versão que baixou primeiro.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloading) return; // primeira instalação: nada a fazer
+    reloading = true;
+    location.reload();
+  });
+  navigator.serviceWorker
+    .register("sw.js")
+    .then((reg) => reg.update()) // procura atualização a cada abertura
+    .catch(() => {});
+}
+
 async function boot() {
-  if ("serviceWorker" in navigator)
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+  setupServiceWorker();
   await Sync.detect();
   if (Sync.enabled && !Sync.user) setupAuth();
   else await enterApp();

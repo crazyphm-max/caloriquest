@@ -1,5 +1,10 @@
-// Service worker: deixa o CaloriQuest funcionar offline (cache-first)
-const CACHE = "caloriquest-v6";
+// Service worker do CaloriQuest.
+//
+// Estratégia "stale-while-revalidate": responde do cache (rápido e funciona
+// offline) e, em paralelo, busca a versão nova na rede e guarda para a próxima
+// vez. Assim uma troca de sprite ou de código chega ao aparelho sozinha, sem
+// depender de eu lembrar de mudar a versão do cache.
+const CACHE = "caloriquest-v7";
 const ASSETS = [
   "./",
   "./index.html",
@@ -31,23 +36,51 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
+  // reload: true ignora o cache HTTP do navegador ao montar o cache novo
+  e.waitUntil(
+    caches.open(CACHE).then((c) =>
+      c.addAll(ASSETS.map((u) => new Request(u, { cache: "reload" })))
+    )
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+      )
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (e) => {
-  // API nunca passa pelo cache — sempre rede
-  if (new URL(e.request.url).pathname.includes("/api/")) return;
+  const req = e.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.includes("/api/")) return; // API sempre pela rede
+
+  // A busca na rede começa já e é registrada com waitUntil: sem isso o
+  // navegador pode encerrar o service worker assim que a resposta do cache
+  // sai, e a versão nova nunca chega a ser gravada — foi exatamente o que
+  // deixou aparelhos presos no sprite antigo.
+  const fromNetwork = fetch(req, { cache: "no-cache" })
+    .then(async (res) => {
+      if (res && res.ok) {
+        const cache = await caches.open(CACHE);
+        await cache.put(req, res.clone());
+      }
+      return res;
+    })
+    .catch(() => null);
+  e.waitUntil(fromNetwork);
+
   e.respondWith(
-    caches.match(e.request).then((hit) => hit || fetch(e.request))
+    caches.match(req, { ignoreSearch: true }).then(
+      (cached) => cached || fromNetwork.then((res) => res || Response.error())
+    )
   );
 });

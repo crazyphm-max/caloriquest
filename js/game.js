@@ -22,8 +22,15 @@ const GameScene = (() => {
     idle: { top: [150, 185, 230], bot: [255, 216, 168], dark: 0 }, // amanhecer
   };
 
+  const MW = 56, MH = 48;   // frame dos mascotes
+  const MFRAMES = 4;
+  const MGROUND = 44;       // linha do chão dentro do frame do mascote
+
   let canvas, ctx, img = {};
   let variant = "m"; // personagem: m (masculino) ou f (feminino)
+  // mascotes: {on, stage} — stage 0/1/2 conforme proteína (cão) e água (gato)
+  let pets = { dog: { on: false, stage: 1 }, cat: { on: false, stage: 1 } };
+  let bubble = null;        // {who, text, until} balão de dica
   let mood = "walk";
   let cur = { top: [...SKY.walk.top], bot: [...SKY.walk.bot], dark: 0, rain: 0, speed: SPEED.walk, flip: 0 };
   let groundX = 0, hillsX = 0, cloudX = 0;
@@ -42,12 +49,10 @@ const GameScene = (() => {
     canvas = canvasEl;
     ctx = canvas.getContext("2d");
     const base = "assets/sprites/";
-    [img.walker_m, img.walker_f, img.ground, img.hills, img.cloud1, img.cloud2, img.sun, img.storm] =
-      await Promise.all(
-        ["walker_m", "walker_f", "ground", "hills", "cloud1", "cloud2", "sun", "storm"].map((n) =>
-          loadImage(base + n + ".png")
-        )
-      );
+    const names = ["walker_m", "walker_f", "ground", "hills", "cloud1", "cloud2",
+                   "sun", "storm", "dog", "cat"];
+    const loaded = await Promise.all(names.map((n) => loadImage(base + n + ".png")));
+    names.forEach((n, i) => (img[n] = loaded[i]));
     resize();
     window.addEventListener("resize", resize);
     running = true;
@@ -68,6 +73,18 @@ const GameScene = (() => {
 
   function setVariant(sex) {
     variant = sex === "f" ? "f" : "m";
+  }
+
+  // Liga/desliga um mascote e define seu estágio (0 fraco, 1 normal, 2 forte)
+  function setPet(who, on, stage) {
+    if (!pets[who]) return;
+    pets[who].on = !!on;
+    if (stage !== undefined) pets[who].stage = Math.max(0, Math.min(2, stage));
+  }
+
+  // Mostra um balão de fala por alguns segundos
+  function say(who, text, seconds = 7) {
+    bubble = { who, text, until: performance.now() + seconds * 1000 };
   }
 
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -164,6 +181,12 @@ const GameScene = (() => {
     ctx.drawImage(img["walker_" + variant], frame * FW, row * FH, FW, FH, 0, 0, FW * scale, FH * scale);
     ctx.restore();
 
+    // mascotes: caminham atrás do dono, um pouco menores
+    drawPets(scale, cx, groundY);
+
+    // balão de dica
+    drawBubble(scale, cx, groundY, W, H);
+
     // chuva
     if (cur.rain > 1) updateRain(dt, W, H);
 
@@ -180,6 +203,91 @@ const GameScene = (() => {
       ctx.fillRect(0, 0, W, H);
       flashA *= Math.pow(0.001, dt);
     }
+  }
+
+  // Cachorro caminha atrás do dono e o gato à frente — assim os dois cabem
+  // na tela sem se sobrepor (e invertem quando o dono anda para trás).
+  const PET_OFFSET = { dog: -34, cat: 92 };
+
+  function drawPets(scale, cx, groundY) {
+    const pscale = scale * 0.75;
+    const petFrame = Math.floor(animT * 0.7) % MFRAMES;
+    const back = cur.flip > 0.5;
+    for (const who of ["dog", "cat"]) {
+      const pet = pets[who];
+      if (!pet.on || !img[who]) continue;
+      const off = back ? FW - PET_OFFSET[who] - MW * 0.75 : PET_OFFSET[who];
+      const px = cx + off * scale;
+      const py = groundY + 4 * scale - MGROUND * pscale;
+
+      ctx.fillStyle = `rgba(18,24,44,${0.22 - cur.dark * 0.2})`;
+      ctx.beginPath();
+      ctx.ellipse(px + 26 * pscale, groundY + 5 * scale, 15 * pscale, 3 * pscale, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.save();
+      ctx.translate(px, py);
+      if (back) ctx.scale(-1, 1), ctx.translate(-MW * pscale, 0);
+      ctx.drawImage(img[who], petFrame * MW, pet.stage * MH, MW, MH,
+                    0, 0, MW * pscale, MH * pscale);
+      ctx.restore();
+    }
+  }
+
+  // Caixa de fala do mascote no rodapé da cena (estilo diálogo de RPG):
+  // no celular sobra pouca largura, então uma faixa lê melhor que um balão.
+  function drawBubble(scale, cx, groundY, W, H) {
+    if (!bubble) return;
+    if (performance.now() > bubble.until) { bubble = null; return; }
+    const pet = pets[bubble.who];
+    if (!pet || !pet.on) { bubble = null; return; }
+
+    const pad = 10;
+    const boxW = W - pad * 2;
+    const iconW = 26;
+    ctx.font = "600 12.5px system-ui, -apple-system, sans-serif";
+
+    // quebra o texto na largura disponível
+    const textW = boxW - iconW - 22;
+    const lines = [];
+    let line = "";
+    for (const word of bubble.text.split(" ")) {
+      const test = line ? line + " " + word : word;
+      if (ctx.measureText(test).width > textW && line) {
+        lines.push(line);
+        line = word;
+      } else line = test;
+    }
+    if (line) lines.push(line);
+
+    const lh = 16;
+    const boxH = Math.max(38, lines.length * lh + 14);
+    const by = H - boxH - pad;
+
+    // fade nos últimos 600 ms
+    const left = bubble.until - performance.now();
+    ctx.globalAlpha = Math.min(1, left / 600);
+
+    ctx.fillStyle = "rgba(20, 24, 40, 0.86)";
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(pad, by, boxW, boxH, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = "16px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(bubble.who === "dog" ? "🐶" : "🐱", pad + 6 + iconW / 2, by + boxH / 2);
+
+    ctx.font = "600 12.5px system-ui, -apple-system, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const ty = by + (boxH - lines.length * lh) / 2 + 1;
+    lines.forEach((l, i) => ctx.fillText(l, pad + iconW + 14, ty + i * lh));
+    ctx.globalAlpha = 1;
   }
 
   function drawTiled(tile, offset, y, scale, W) {
@@ -210,5 +318,5 @@ const GameScene = (() => {
     ctx.stroke();
   }
 
-  return { init, setMood, setVariant };
+  return { init, setMood, setVariant, setPet, say };
 })();

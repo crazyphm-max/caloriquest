@@ -29,6 +29,7 @@ def build():
     foods = read("js/foods.js")
     calc = read("js/calc.js")
     challenges = read("js/challenges.js")
+    mascots = read("js/mascots.js")
     game = read("js/game.js")
     sync = read("js/sync.js")
     app = read("js/app.js")
@@ -36,7 +37,8 @@ def build():
 
     sprites = {n: b64(f"assets/sprites/{n}.png")
                for n in ("walker_m", "walker_f", "ground", "hills", "cloud1", "cloud2",
-                         "sun", "storm", "icon-192", "char_m", "char_f")}
+                         "sun", "storm", "icon-192", "char_m", "char_f",
+                         "dog", "cat", "mascot_dog", "mascot_cat")}
 
     # game.js: carrega dos data URIs em vez de arquivos
     game = game.replace('const base = "assets/sprites/";', "")
@@ -54,6 +56,8 @@ def build():
     body = html.split("<body>")[1].split("<script")[0]
     body = body.replace('src="assets/sprites/icon-192.png"', f'src="{sprites["icon-192"]}"')
     body = body.replace('src="assets/sprites/char_m.png"', f'src="{sprites["char_m"]}"')
+    body = body.replace('src="assets/sprites/mascot_dog.png"', f'src="{sprites["mascot_dog"]}"')
+    body = body.replace('src="assets/sprites/mascot_cat.png"', f'src="{sprites["mascot_cat"]}"')
 
     sprite_js = "const SPRITE_DATA = {" + ",".join(
         f'{n}:"{d}"' for n, d in sprites.items() if n != "icon-192") + "};"
@@ -71,6 +75,7 @@ def build():
 {foods}
 {calc}
 {challenges}
+{mascots}
 {game}
 {sync}
 {app}

@@ -114,6 +114,29 @@
       </section>
       <p class="proj-line" id="proj-line"></p>
 
+      <section class="panel goals-panel">
+        <div class="goal" id="goal-protein">
+          <div class="goal-head">
+            <span>🥩 Proteína</span>
+            <b><span id="pr-now">0</span> / <span id="pr-goal">0</span> g</b>
+          </div>
+          <div class="goal-bar"><div id="pr-fill" class="goal-fill prot"></div></div>
+          <div class="goal-note" id="pr-note"></div>
+        </div>
+        <div class="goal" id="goal-water">
+          <div class="goal-head">
+            <span>💧 Água</span>
+            <b><span id="wt-now">0</span> / <span id="wt-goal">0</span> ml</b>
+          </div>
+          <div class="goal-bar"><div id="wt-fill" class="goal-fill water"></div></div>
+          <div class="water-add">
+            <button data-water="200">+1 copo<small>200 ml</small></button>
+            <button data-water="500">+1 garrafa<small>500 ml</small></button>
+            <button data-water="-200" class="undo">−200</button>
+          </div>
+        </div>
+      </section>
+
       <section class="panel">
         <h2>🍽️ O que você comeu?</h2>
         <div class="food-add">
@@ -175,6 +198,37 @@
       <section class="panel">
         <form id="profile-form"></form>
       </section>
+      <section class="panel">
+        <h2>🐾 Mascotes</h2>
+        <p class="info-text" style="margin-bottom:10px">
+          Eles caminham com você e cuidam de uma meta cada. Ligue quem quiser levar junto.
+        </p>
+        <label class="pet-row">
+          <img src="assets/sprites/mascot_dog.png" alt="" />
+          <span class="pet-info">
+            <b>Cachorro — proteína</b>
+            <small>Fica bombado conforme você bate a meta de proteína do dia.</small>
+          </span>
+          <input type="checkbox" id="pet-dog" class="switch" />
+        </label>
+        <label class="pet-row">
+          <img src="assets/sprites/mascot_cat.png" alt="" />
+          <span class="pet-info">
+            <b>Gato — água</b>
+            <small>Murcha se o dia passa e você não bebe água.</small>
+          </span>
+          <input type="checkbox" id="pet-cat" class="switch" />
+        </label>
+        <label class="pet-row">
+          <span class="pet-emoji">💬</span>
+          <span class="pet-info">
+            <b>Dicas dos mascotes</b>
+            <small>Eles falam com você durante a caminhada — lembretes de pesagem, proteína e água.</small>
+          </span>
+          <input type="checkbox" id="pet-tips" class="switch" />
+        </label>
+      </section>
+
       <section class="panel hidden" id="account-panel"></section>
       <section class="panel">
         <h2>ℹ️ Como calculamos</h2>
@@ -201,6 +255,7 @@
   <script src="js/foods.js"></script>
   <script src="js/calc.js"></script>
   <script src="js/challenges.js"></script>
+  <script src="js/mascots.js"></script>
   <script src="js/game.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>

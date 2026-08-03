@@ -14,7 +14,10 @@ function loadState(key = storeKey()) {
     const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw);
   } catch (e) { /* estado corrompido: recomeça */ }
-  return { profile: null, weights: [], days: {}, xp: 0, awarded: {} };
+  return {
+    profile: null, weights: [], days: {}, xp: 0, awarded: {},
+    pets: { dog: true, cat: true, tips: true },
+  };
 }
 
 function saveState() {
@@ -23,8 +26,15 @@ function saveState() {
 }
 
 function today() {
-  if (!state.days[dayKey()]) state.days[dayKey()] = { foods: [], ex: [], done: {} };
+  if (!state.days[dayKey()])
+    state.days[dayKey()] = { foods: [], ex: [], done: {}, water: 0 };
   return state.days[dayKey()];
+}
+
+// Estados salvos antes dos mascotes não têm as preferências nem o campo água
+function ensurePetFields() {
+  if (!state.pets) state.pets = { dog: true, cat: true, tips: true };
+  for (const d of Object.values(state.days)) if (d.water === undefined) d.water = 0;
 }
 
 // ===== XP / nível / streak =====
@@ -71,7 +81,11 @@ function awardPastDays() {
     state.awarded[k] = true;
     const def = dayDeficit(day, state.profile);
     if (def > 0) gained += 30;
-    const totals = { ...dayTotals(day), deficit: def, meals: day.foods.length };
+    const totals = {
+      ...dayTotals(day), deficit: def, meals: day.foods.length,
+      proteinGoal: proteinGoal(state.profile),
+      waterGoal: waterGoal(state.profile, dayTotals(day).burned),
+    };
     for (const ch of dailyChallenges(k)) {
       if (ch.type === "endday" && !day.done?.[ch.id] && ch.check(totals)) {
         gained += ch.xp;
@@ -290,7 +304,7 @@ function setQty(v) {
 }
 
 function addFood(f) {
-  today().foods.push({ n: f.n, p: f.p, kcal: f.k, qty });
+  today().foods.push({ n: f.n, p: f.p, kcal: f.k, pr: f.pr || 0, ml: f.ml || 0, qty });
   saveState();
   if (today().foods.length === 1) addXp(5, "primeiro registro do dia");
   setQty(1);
@@ -343,7 +357,8 @@ function renderToday() {
   }
 
   renderItemList("food-list", day.foods, (f, i) => `
-    <span class="i-name">${f.qty > 1 ? f.qty + "× " : ""}${f.n}<span class="i-portion">${f.p}</span></span>
+    <span class="i-name">${f.qty > 1 ? f.qty + "× " : ""}${f.n}<span class="i-portion">${f.p}${
+      f.pr ? ` · ${f.pr * f.qty}g proteína` : ""}${f.ml ? ` · ${f.ml * f.qty}ml água` : ""}</span></span>
     <span class="i-kcal">${f.kcal * f.qty} kcal</span>
     <button class="i-del" data-del-food="${i}">✕</button>`,
     "Nada registrado ainda. O que você comeu hoje?");
@@ -369,8 +384,92 @@ function renderToday() {
 
   updateMood();
   renderWeighCard();
+  renderGoals();
   renderHeader();
   renderChallenges();
+}
+
+// ===== Metas de proteína e água (os mascotes vivem disso) =====
+function renderGoals() {
+  const day = today();
+  const totals = dayTotals(day);
+  const dog = MascotLogic.dogStage(state);
+  const cat = MascotLogic.catStage(state);
+
+  document.getElementById("pr-now").textContent = dog.got;
+  document.getElementById("pr-goal").textContent = dog.goal;
+  document.getElementById("pr-fill").style.width = `${Math.min(100, dog.pct * 100)}%`;
+  const prNote = document.getElementById("pr-note");
+  const missing = dog.goal - dog.got;
+  prNote.textContent = missing > 0
+    ? `Faltam ${missing} g — o cachorro fica mais forte a cada grama! 🐶`
+    : "Meta batida! Seu cachorro está bombado hoje. 💪";
+
+  document.getElementById("wt-now").textContent = cat.got;
+  document.getElementById("wt-goal").textContent = cat.goal;
+  document.getElementById("wt-fill").style.width =
+    `${Math.min(100, cat.pctOfGoal * 100)}%`;
+
+  // reflete tudo na cena
+  GameScene.setPet("dog", state.pets.dog, ["skinny", "normal", "buff"].indexOf(dog.stage));
+  GameScene.setPet("cat", state.pets.cat, ["dry", "normal", "happy"].indexOf(cat.stage));
+}
+
+function setupWater() {
+  document.querySelectorAll("[data-water]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const ml = +b.dataset.water;
+      const day = today();
+      day.water = Math.max(0, (day.water || 0) + ml);
+      saveState();
+      if (ml > 0) {
+        const cat = MascotLogic.catStage(state);
+        toast(cat.pctOfGoal >= 1 ? "💧 Meta de água batida!" : `💧 +${ml} ml`);
+      }
+      renderToday();
+    }));
+}
+
+// ===== Mascotes: liga/desliga e rodízio de dicas =====
+let tipTimer = null;
+let lastTip = { dog: null, cat: null };
+let tipTurn = 0;
+
+function setupPets() {
+  const map = { "pet-dog": "dog", "pet-cat": "cat", "pet-tips": "tips" };
+  for (const [id, key] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    el.checked = !!state.pets[key];
+    el.addEventListener("change", () => {
+      state.pets[key] = el.checked;
+      saveState();
+      renderGoals();
+      if (key === "tips") scheduleTips();
+      else if (el.checked) sayTip(key); // apresenta o bichinho na hora
+    });
+  }
+  scheduleTips();
+}
+
+// Uma dica por vez, alternando entre os mascotes ativos
+function sayTip(who) {
+  if (!state.pets.tips || !state.pets[who]) return;
+  const txt = MascotLogic.nextTip(state, who, lastTip[who]);
+  if (!txt) return;
+  lastTip[who] = txt;
+  GameScene.say(who, txt, 8);
+}
+
+function scheduleTips() {
+  clearInterval(tipTimer);
+  if (!state.pets.tips) return;
+  const speak = () => {
+    const active = ["dog", "cat"].filter((w) => state.pets[w]);
+    if (!active.length) return;
+    sayTip(active[tipTurn++ % active.length]);
+  };
+  setTimeout(speak, 3000);       // a primeira logo depois de abrir
+  tipTimer = setInterval(speak, 25000);
 }
 
 function renderItemList(id, items, tpl, emptyMsg) {
@@ -438,7 +537,11 @@ function renderHeader() {
 function renderChallenges() {
   const day = today();
   const def = dayDeficit(day, state.profile);
-  const totals = { ...dayTotals(day), deficit: def, meals: day.foods.length };
+  const totals = {
+    ...dayTotals(day), deficit: def, meals: day.foods.length,
+    proteinGoal: proteinGoal(state.profile),
+    waterGoal: waterGoal(state.profile, dayTotals(day).burned),
+  };
   const list = document.getElementById("challenge-list");
   list.innerHTML = "";
 
@@ -516,6 +619,8 @@ function renderProgress() {
     rows.push(["Peso previsto na data da meta", fmtKg(proj.weightAtTarget)]);
     if (proj.etaDate) rows.push(["Previsão de bater a meta", fmtDate(proj.etaDate)]);
   }
+  rows.push(["Meta de proteína", `${proteinGoal(p)} g/dia 🐶`]);
+  rows.push(["Meta de água", `${waterGoal(p, 0)} ml/dia 🐱`]);
   rows.push(["Sequência em déficit", `${streak()} dia(s) 🔥`]);
   rows.push(["XP total", `${state.xp} (nível ${level()})`]);
   document.getElementById("progress-stats").innerHTML = rows
@@ -618,6 +723,8 @@ function startApp() {
   setupFoodInput();
   setupExercise();
   setupWeighCard();
+  setupWater();
+  setupPets();
   setupProgress();
   setupTabs();
   renderAll();
@@ -647,6 +754,7 @@ async function enterApp() {
     }
     saveState(); // grava na chave da conta + agenda push pra nuvem
   }
+  ensurePetFields();
   if (state.profile) startApp();
   else setupOnboarding();
 }

@@ -16,6 +16,15 @@ const CHALLENGE_DB = [
   { id: "veggie", txt: "Salada ou legumes em 2 refeições", xp: 30, type: "manual" },
   { id: "nofry", txt: "Nada de frituras hoje", xp: 35, type: "manual" },
   { id: "sleep7", txt: "Durma 7h ou mais (sono ajuda a emagrecer)", xp: 25, type: "manual" },
+  { id: "protein", txt: "Bata a meta de proteína do dia 🐶", xp: 60, type: "auto",
+    check: (d) => d.protein >= d.proteinGoal,
+    prog: (d) => `${Math.round(d.protein)}/${d.proteinGoal} g` },
+  { id: "water", txt: "Bata a meta de água do dia 🐱", xp: 50, type: "auto",
+    check: (d) => d.water >= d.waterGoal,
+    prog: (d) => `${Math.round(d.water)}/${d.waterGoal} ml` },
+  { id: "protein80", txt: "Chegue a 80% da meta de proteína", xp: 35, type: "auto",
+    check: (d) => d.protein >= d.proteinGoal * 0.8,
+    prog: (d) => `${Math.round((d.protein / d.proteinGoal) * 100)}% de 80%` },
 ];
 
 // Sorteio determinístico: mesmos 3 desafios para o dia, mudando a cada dia

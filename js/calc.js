@@ -30,7 +30,26 @@ function dayKey(d = new Date()) {
 function dayTotals(day) {
   const eaten = (day?.foods || []).reduce((s, f) => s + f.kcal * (f.qty || 1), 0);
   const burned = (day?.ex || []).reduce((s, e) => s + e.kcal, 0);
-  return { eaten, burned };
+  const protein = (day?.foods || []).reduce((s, f) => s + (f.pr || 0) * (f.qty || 1), 0);
+  // água: o que veio das bebidas/comidas + os copos registrados na mão
+  const water = (day?.foods || []).reduce((s, f) => s + (f.ml || 0) * (f.qty || 1), 0)
+    + (day?.water || 0);
+  return { eaten, burned, protein, water };
+}
+
+// Meta de proteína: 1,8 g por kg de peso-alvo (preserva músculo em déficit).
+// Usa o peso-alvo, não o atual — gordura corporal não precisa ser alimentada.
+function proteinGoal(p) {
+  const base = Math.min(p.weight, p.targetWeight || p.weight);
+  const factor = p.activity === "intenso" ? 2.0 : p.activity === "moderado" ? 1.8 : 1.6;
+  return Math.round(base * factor);
+}
+
+// Meta de água: 35 ml por kg (homens) / 31 ml por kg (mulheres), + exercício
+function waterGoal(p, burnedKcal = 0) {
+  const perKg = p.sex === "f" ? 31 : 35;
+  const extra = Math.round(burnedKcal / 100) * 100; // ~100 ml por 100 kcal queimadas
+  return Math.round((p.weight * perKg + extra) / 50) * 50;
 }
 
 // Déficit de um dia completo: gasto total + exercícios - consumido

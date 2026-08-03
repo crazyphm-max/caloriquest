@@ -39,6 +39,25 @@ Ao se cadastrar você escolhe o sexo e o app usa o personagem correspondente —
 ele de camiseta vermelha e faixa amarela, ela de top rosa, shorts verde-água e
 rabo de cavalo. Os dois começam gordinhos: a jornada é essa. 😄
 
+## Mascotes
+
+Dois bichinhos caminham com você e cada um cuida de uma meta. Ligue ou desligue
+cada um no Perfil, junto com as dicas que eles dão durante a caminhada.
+
+| Mascote | Cuida de | Como reage |
+| --- | --- | --- |
+| 🐶 Cachorro | Proteína | Magro no começo do dia, vai ficando **bombado** conforme você come proteína — some 80% da meta e ele fica forte, de língua de fora |
+| 🐱 Gato | Água | Fica **murcho e cabisbaixo** se o dia avança sem você beber; hidratado, anda de rabo em pé |
+
+As metas saem do seu perfil: proteína de 1,6 a 2,0 g por kg do peso-alvo (conforme o
+nível de atividade) e água de 31–35 ml por kg, com acréscimo pelo exercício do dia.
+Cada alimento do banco já traz proteína e hidratação, e dá para registrar copos de
+água na mão.
+
+As dicas aparecem numa caixa de diálogo no rodapé da cena, em rodízio: lembrete de
+pesagem em jejum, quanto falta de proteína, aviso quando você passou das calorias,
+sugestão de caminhada, e por aí vai.
+
 ## Nuvem: login e dados por pessoa (Cloudflare)
 
 O app tem uma API pronta para **Cloudflare Pages + Functions + D1** (grátis):
@@ -95,8 +114,10 @@ pip install Pillow
 python3 tools/generate_sprites.py
 ```
 
-Ele gera o sprite sheet do personagem (andar, correr e desanimado — 4 frames cada),
-a pista, os morros, nuvens, sol, nuvem de tempestade e os ícones do app.
+Os personagens humanos vêm de arte gerada por IA e passam por
+`tools/process_ai_sprites.py`, que remove o fundo, recorta os 6 frames de cada
+animação, limpa respingos e normaliza escala e linha dos pés. Os mascotes e o
+cenário são desenhados por `tools/generate_mascots.py` e `tools/generate_sprites.py`.
 
 ## Notas de cálculo
 

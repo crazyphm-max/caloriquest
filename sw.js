@@ -1,5 +1,5 @@
 // Service worker: deixa o CaloriQuest funcionar offline (cache-first)
-const CACHE = "caloriquest-v5";
+const CACHE = "caloriquest-v6";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "./js/foods.js",
   "./js/calc.js",
   "./js/challenges.js",
+  "./js/mascots.js",
   "./js/game.js",
   "./js/sync.js",
   "./js/app.js",
@@ -15,6 +16,10 @@ const ASSETS = [
   "./assets/sprites/walker_f.png",
   "./assets/sprites/char_m.png",
   "./assets/sprites/char_f.png",
+  "./assets/sprites/dog.png",
+  "./assets/sprites/cat.png",
+  "./assets/sprites/mascot_dog.png",
+  "./assets/sprites/mascot_cat.png",
   "./assets/sprites/ground.png",
   "./assets/sprites/hills.png",
   "./assets/sprites/cloud1.png",

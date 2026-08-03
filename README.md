@@ -99,20 +99,36 @@ cada pessoa cria sua conta (e-mail + senha), os dados ficam no banco D1 e
 sincronizam entre aparelhos. Sem a API (GitHub Pages, arquivo local), o app
 funciona em modo local, como sempre.
 
-Deploy em um comando (~10 minutos na primeira vez):
+### Publicar sem instalar nada (só o navegador)
+
+O workflow `.github/workflows/cloudflare.yml` faz tudo pelo GitHub Actions —
+igualzinho ao GitHub Pages, sem baixar nada para o computador. Só precisa
+autorizar o GitHub a mexer na sua conta do Cloudflare, com dois segredos:
+
+1. **Cloudflare → My Profile → API Tokens → Create Token → Create Custom Token**
+   com estas permissões de conta: *Cloudflare Pages → Edit*, *D1 → Edit* e
+   *Workers Scripts → Edit*. Copie o token (ele só aparece uma vez).
+2. **Account ID**: no painel, em *Workers & Pages*, na barra lateral direita —
+   ou o código que aparece na URL depois de `dash.cloudflare.com/`.
+3. No GitHub: *Settings → Secrets and variables → Actions → New repository
+   secret*, cadastre `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`.
+4. Aba **Actions → Publicar no Cloudflare → Run workflow**.
+
+O workflow cria o projeto no Pages, cria o banco D1, descobre o `database_id`
+sozinho, cria as tabelas e publica. No fim do log ele mostra o endereço. Dali em
+diante, todo push republica automaticamente.
+
+O site sobe em `https://caloriquest.pages.dev` (dá pra ligar domínio próprio).
+
+### Alternativa: pelo terminal
+
+Se preferir rodar na sua máquina (precisa de Node instalado):
 
 ```bash
 bash tools/setup_cloudflare.sh
 ```
 
-O script faz login, cria o banco D1, escreve o `database_id` no `wrangler.toml`,
-cria as tabelas e publica o site. No fim ele mostra o único passo que precisa ser
-feito no painel: ligar o banco ao site em *Settings → Bindings → Add → D1
-database*, com o nome de variável `DB`.
-
-O site sobe em `https://caloriquest.pages.dev` (dá pra ligar domínio próprio).
-Deploys seguintes: `npx wrangler pages deploy .` — ou conecte o repositório no
-painel do Cloudflare Pages para deploy automático a cada push.
+Faz o mesmo caminho, pedindo o login do Cloudflare pelo navegador.
 
 Notas de segurança: senhas com PBKDF2 (100 mil iterações), sessão em cookie
 HttpOnly de 180 dias, e cada usuário só acessa o próprio estado.

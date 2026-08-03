@@ -1,0 +1,118 @@
+name: Publicar no Cloudflare (login + banco)
+
+# Publica o CaloriQuest no Cloudflare Pages com banco D1 sem precisar de nada
+# instalado em computador nenhum: quem roda o Wrangler é o GitHub.
+#
+# Antes do primeiro uso, cadastre dois segredos em
+# Settings → Secrets and variables → Actions → New repository secret:
+#   CLOUDFLARE_API_TOKEN   token criado em dash.cloudflare.com → My Profile → API Tokens
+#   CLOUDFLARE_ACCOUNT_ID  ID da conta (aparece na URL do painel e na aba Workers & Pages)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/calorie-tracking-game-app-i9vjva]
+    paths-ignore:
+      - "README.md"
+      - "tools/**"
+
+concurrency:
+  group: cloudflare
+  cancel-in-progress: true
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  DB_NAME: caloriquest-db
+  PROJECT: caloriquest
+  WRANGLER_SEND_METRICS: "false"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Enquanto os segredos não existirem o job não falha: ele avisa e para.
+      # Assim o Actions não fica cheio de X vermelho antes de você configurar.
+      - name: Conferir os segredos
+        id: check
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Falta configurar o Cloudflare ⚙️"
+              echo ""
+              echo "Cadastre em **Settings → Secrets and variables → Actions**:"
+              echo "- \`CLOUDFLARE_API_TOKEN\`"
+              echo "- \`CLOUDFLARE_ACCOUNT_ID\`"
+              echo ""
+              echo "Depois rode este workflow de novo (aba Actions → Run workflow)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Segredos do Cloudflare ainda não cadastrados — nada foi publicado."
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Criar o projeto no Pages (ignora se já existir)
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          npx --yes wrangler@4 pages project create "$PROJECT" \
+            --production-branch=main 2>&1 | tee out.txt || \
+            grep -qi "already exists\|já existe\|8000007" out.txt
+
+      - name: Criar o banco D1 (ignora se já existir)
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          npx --yes wrangler@4 d1 create "$DB_NAME" 2>&1 | tee out.txt || \
+            grep -qi "already exists\|já existe" out.txt
+
+      - name: Descobrir o database_id e gravar no wrangler.toml
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          # a saída do Wrangler muda entre versões, então tentamos mais de um jeito
+          ID=$(npx --yes wrangler@4 d1 list --json 2>/dev/null \
+                | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
+                    try{const l=JSON.parse(s);const d=l.find(x=>x.name===process.env.DB_NAME);
+                    if(d)console.log(d.uuid||d.database_id||'')}catch(e){}})")
+          if [ -z "$ID" ]; then
+            ID=$(npx --yes wrangler@4 d1 info "$DB_NAME" --json 2>/dev/null \
+                  | grep -o '"uuid"[^,]*' | head -1 | cut -d'"' -f4)
+          fi
+          if [ -z "$ID" ]; then
+            echo "::error::Não consegui descobrir o database_id do banco $DB_NAME."
+            echo "Confira se o token tem a permissão 'D1 → Edit'."
+            exit 1
+          fi
+          echo "database_id encontrado: $ID"
+          sed -i "s|database_id = \".*\"|database_id = \"$ID\"|" wrangler.toml
+          grep database_id wrangler.toml
+
+      - name: Criar as tabelas (usuários, sessões e dados)
+        if: steps.check.outputs.ok == 'true'
+        run: npx --yes wrangler@4 d1 execute "$DB_NAME" --remote --file=schema.sql --yes
+
+      # --branch=main força deploy de produção (caloriquest.pages.dev). Sem isso o
+      # Wrangler usa o nome do branch do git e sai um endereço de preview.
+      # O binding do D1 vai junto, lido do wrangler.toml — não precisa clicar no painel.
+      - name: Publicar o site
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          npx --yes wrangler@4 pages deploy \
+            --project-name="$PROJECT" --branch=main --commit-dirty=true
+
+      - name: Endereço final
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          {
+            echo "### CaloriQuest publicado 🚀"
+            echo ""
+            echo "Abra: **https://$PROJECT.pages.dev**"
+            echo ""
+            echo "Se a tela de login não aparecer, confira em Workers & Pages →"
+            echo "$PROJECT → Settings → Bindings se existe um D1 chamado \`DB\`."
+          } >> "$GITHUB_STEP_SUMMARY"

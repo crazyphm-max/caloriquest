@@ -39,6 +39,33 @@ Ao se cadastrar você escolhe o sexo e o app usa o personagem correspondente —
 ele de camiseta vermelha e faixa amarela, ela de top rosa, shorts verde-água e
 rabo de cavalo. Os dois começam gordinhos: a jornada é essa. 😄
 
+## Modo jejum intermitente
+
+Você diz quando parou de comer (agora ou uma hora anterior) e escolhe o protocolo
+— 12/12, 14/10, 16/8, 18/6, 20/4 ou OMAD. Um relógio circular conta o tempo ao
+vivo e mostra a fase metabólica atual.
+
+Tocando no relógio, a linha do tempo do que acontece no corpo: queda da insulina
+(4h), esgotamento do glicogênio (8h), início da queima de gordura (12h), pico de
+hormônio do crescimento (14h), autofagia (16h), cetose firme (18h) e por aí vai.
+O que você já conquistou aparece marcado, o que vem pela frente fica esmaecido.
+
+Ao encerrar, o jejum entra no histórico com estatísticas: total, metas
+concluídas, maior jejum, média dos últimos 7 dias e dias seguidos.
+
+## Modo academia
+
+Dois jeitos de registrar, porque nem todo dia dá pra detalhar:
+
+- **Rápido** — só os minutos de musculação e de aeróbico
+- **Detalhado** — exercício por exercício, com séries, repetições, carga e tempo
+
+São 38 exercícios de academia com MET próprio, agrupados por músculo. O app
+soma os minutos, calcula as calorias, acumula o volume de carga (séries × reps ×
+kg) e mostra quais grupos musculares você trabalhou nos últimos 7 dias. Ao
+repetir um exercício, ele lembra a carga da última vez para você buscar a
+progressão.
+
 ## Mascotes
 
 Dois bichinhos caminham com você e cada um cuida de uma meta. Ligue ou desligue

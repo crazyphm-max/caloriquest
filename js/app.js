@@ -17,6 +17,7 @@ function loadState(key = storeKey()) {
   return {
     profile: null, weights: [], days: {}, xp: 0, awarded: {},
     pets: { dog: true, cat: true, tips: true },
+    fast: null, fastHistory: [],
   };
 }
 
@@ -27,14 +28,19 @@ function saveState() {
 
 function today() {
   if (!state.days[dayKey()])
-    state.days[dayKey()] = { foods: [], ex: [], done: {}, water: 0 };
+    state.days[dayKey()] = { foods: [], ex: [], done: {}, water: 0, gym: [] };
   return state.days[dayKey()];
 }
 
 // Estados salvos antes dos mascotes não têm as preferências nem o campo água
 function ensurePetFields() {
   if (!state.pets) state.pets = { dog: true, cat: true, tips: true };
-  for (const d of Object.values(state.days)) if (d.water === undefined) d.water = 0;
+  if (!state.fastHistory) state.fastHistory = [];
+  if (state.fast === undefined) state.fast = null;
+  for (const d of Object.values(state.days)) {
+    if (d.water === undefined) d.water = 0;
+    if (!d.gym) d.gym = [];
+  }
 }
 
 // ===== XP / nível / streak =====
@@ -81,10 +87,13 @@ function awardPastDays() {
     state.awarded[k] = true;
     const def = dayDeficit(day, state.profile);
     if (def > 0) gained += 30;
+    const gsPast = Gym.summary(day);
     const totals = {
       ...dayTotals(day), deficit: def, meals: day.foods.length,
       proteinGoal: proteinGoal(state.profile),
       waterGoal: waterGoal(state.profile, dayTotals(day).burned),
+      gymMin: gsPast.total, gymStrength: gsPast.strength, gymCardio: gsPast.cardio,
+      fastHours: bestFastHours(k),
     };
     for (const ch of dailyChallenges(k)) {
       if (ch.type === "endday" && !day.done?.[ch.id] && ch.check(totals)) {
@@ -382,6 +391,14 @@ function renderToday() {
       renderToday();
     }));
 
+  const gymSummary = Gym.summary(day);
+  const note = document.getElementById("gym-link-note");
+  if (note) {
+    note.textContent = gymSummary.total
+      ? `💪 Mais ${gymSummary.total} min de treino registrados na aba Treino (−${gymSummary.kcal} kcal).`
+      : "Treinou na academia? Registre na aba 💪 Treino.";
+  }
+
   updateMood();
   renderWeighCard();
   renderGoals();
@@ -537,10 +554,13 @@ function renderHeader() {
 function renderChallenges() {
   const day = today();
   const def = dayDeficit(day, state.profile);
+  const gs = Gym.summary(day);
   const totals = {
     ...dayTotals(day), deficit: def, meals: day.foods.length,
     proteinGoal: proteinGoal(state.profile),
     waterGoal: waterGoal(state.profile, dayTotals(day).burned),
+    gymMin: gs.total, gymStrength: gs.strength, gymCardio: gs.cardio,
+    fastHours: bestFastHoursToday(),
   };
   const list = document.getElementById("challenge-list");
   list.innerHTML = "";
@@ -586,6 +606,335 @@ function renderChallenges() {
       addXp(ch.xp, `desafio: ${ch.txt}`);
       renderChallenges();
     }));
+}
+
+// Maior jejum de um dia: conta os encerrados naquele dia e, se for hoje, também
+// o que estiver em andamento — assim o desafio já mostra progresso ao vivo.
+function bestFastHours(key) {
+  let best = 0;
+  for (const r of state.fastHistory || []) {
+    if (dayKey(new Date(r.end)) === key) best = Math.max(best, r.hours);
+  }
+  return best;
+}
+
+function bestFastHoursToday() {
+  let best = bestFastHours(dayKey());
+  if (Fasting.current(state)) best = Math.max(best, Fasting.elapsedHours(state));
+  return best;
+}
+
+// ===== Modo jejum =====
+let fastTimer = null;
+
+function setupFasting() {
+  const sel = document.getElementById("fast-protocol");
+  sel.innerHTML = FASTING_PROTOCOLS.map(
+    (p) => `<option value="${p.h}" ${p.h === 16 ? "selected" : ""}>${p.name} — ${p.desc}</option>`
+  ).join("");
+
+  // por padrão, começou agora
+  const localNow = () => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
+  document.getElementById("fast-start-input").value = localNow();
+
+  document.getElementById("fast-start").onclick = () => {
+    const when = document.getElementById("fast-start-input").value;
+    const goal = +sel.value;
+    const startedAt = when ? new Date(when) : new Date();
+    if (startedAt > new Date()) return toast("Essa hora ainda não chegou 🙂");
+    Fasting.start(state, startedAt, goal);
+    saveState();
+    addXp(10, "jejum iniciado");
+    renderFasting();
+    toast(`⏱️ Jejum de ${goal}h começou!`);
+  };
+
+  document.getElementById("fast-stop").onclick = () => {
+    const rec = Fasting.stop(state);
+    saveState();
+    if (rec) {
+      const done = rec.hours >= rec.goal;
+      const xp = done ? 80 : Math.round(rec.hours * 3);
+      addXp(xp, done ? `jejum de ${rec.goal}h concluído!` : `${rec.hours}h de jejum`);
+      toast(done ? `🏆 ${rec.hours}h — meta batida!` : `Jejum encerrado com ${rec.hours}h`);
+    }
+    renderFasting();
+    document.getElementById("fast-start-input").value = localNow();
+  };
+
+  // tocar no relógio rola até as fases
+  const clock = document.getElementById("fast-clock-wrap");
+  const goPhases = () => {
+    document.getElementById("fast-phases-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  clock.onclick = goPhases;
+  clock.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goPhases(); } };
+}
+
+function renderFasting() {
+  const active = Fasting.current(state);
+  document.getElementById("fast-idle").classList.toggle("hidden", !!active);
+  document.getElementById("fast-active").classList.toggle("hidden", !active);
+  tickFasting();
+  renderFastPhases();
+  renderFastStats();
+
+  clearInterval(fastTimer);
+  if (active) fastTimer = setInterval(tickFasting, 1000);
+}
+
+// Atualiza o relógio a cada segundo (só o texto e o anel, sem redesenhar tudo)
+function tickFasting() {
+  const active = Fasting.current(state);
+  const ms = Fasting.elapsedMs(state);
+  const hours = ms / 3600000;
+  const goal = active ? active.goal : 16;
+  const pct = Math.min(1, hours / goal);
+
+  document.getElementById("fast-time").textContent =
+    active ? Fasting.fmtDuration(ms) : "00:00:00";
+
+  const R = 88, C = 2 * Math.PI * R;
+  const ring = document.getElementById("fast-ring-fill");
+  ring.style.strokeDasharray = C;
+  ring.style.strokeDashoffset = C * (1 - pct);
+  document.getElementById("fast-clock-wrap").classList.toggle("done", pct >= 1);
+
+  const { current, next } = Fasting.phaseAt(hours);
+  document.getElementById("fast-goal").textContent = active
+    ? `meta de ${goal}h · ${Math.round(pct * 100)}%`
+    : "toque para ver as fases";
+  document.getElementById("fast-phase").textContent = active
+    ? `${current.icon} ${current.title}`
+    : "";
+
+  if (active) {
+    const since = new Date(active.start);
+    document.getElementById("fast-since").innerHTML =
+      `Começou <b>${since.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</b>`;
+    const left = goal - hours;
+    document.getElementById("fast-eta").innerHTML = left > 0
+      ? `Faltam <b>${Fasting.fmtDuration(left * 3600000)}</b>${next ? ` · próxima fase: ${next.icon} ${next.title} às ${next.h}h` : ""}`
+      : `Meta batida! Você já está <b>${(hours - goal).toFixed(1)}h além</b> 🏆`;
+  }
+
+  // marca as fases alcançadas sem recriar a lista
+  document.querySelectorAll("#fast-phase-list .phase").forEach((el) => {
+    const h = +el.dataset.h;
+    el.classList.toggle("reached", active && hours >= h);
+    el.classList.toggle("now", active && current.h === h);
+    const chk = el.querySelector(".phase-check");
+    if (chk) chk.textContent = active && hours >= h ? "✓" : "";
+  });
+}
+
+function renderFastPhases() {
+  const list = document.getElementById("fast-phase-list");
+  list.innerHTML = FASTING_PHASES.map((p) => `
+    <div class="phase" data-h="${p.h}">
+      <div class="phase-icon">${p.icon}</div>
+      <div class="phase-body">
+        <div class="phase-title">${p.title}
+          <span class="phase-h">${p.h}h</span>
+          <span class="phase-check"></span>
+        </div>
+        <div class="phase-txt">${p.txt}</div>
+      </div>
+    </div>`).join("");
+}
+
+function renderFastStats() {
+  const st = Fasting.stats(state);
+  const el = document.getElementById("fast-stats");
+  if (!st.total) {
+    el.innerHTML = `<h2>📊 Seu histórico</h2>
+      <p class="info-text">Nenhum jejum registrado ainda. Comece o primeiro aí em cima! ⏱️</p>`;
+    return;
+  }
+  const rows = [
+    ["Jejuns registrados", st.total],
+    ["Metas concluídas", st.completed],
+    ["Maior jejum", `${st.best.toFixed(1)} h`],
+    ["Média dos últimos 7 dias", st.avg7 ? `${st.avg7.toFixed(1)} h` : "—"],
+    ["Dias seguidos", `${st.streak} 🔥`],
+  ];
+  const last = (state.fastHistory || []).slice(-5).reverse();
+  el.innerHTML = `<h2>📊 Seu histórico</h2>` +
+    rows.map(([a, b]) => `<div class="stat-row"><span>${a}</span><b>${b}</b></div>`).join("") +
+    `<h2 style="margin-top:14px">Últimos jejuns</h2>` +
+    last.map((r) => {
+      const d = new Date(r.end);
+      const ok = r.hours >= r.goal;
+      return `<div class="stat-row">
+        <span>${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} · meta ${r.goal}h</span>
+        <b style="color:${ok ? "var(--green)" : "var(--muted)"}">${r.hours} h ${ok ? "✓" : ""}</b>
+      </div>`;
+    }).join("");
+}
+
+// ===== Modo academia =====
+let gymPicked = null;
+
+function setupGym() {
+  const quick = document.getElementById("gym-quick");
+  const detail = document.getElementById("gym-detail");
+  const bq = document.getElementById("gym-mode-quick");
+  const bd = document.getElementById("gym-mode-detail");
+  const setMode = (isQuick) => {
+    quick.classList.toggle("hidden", !isQuick);
+    detail.classList.toggle("hidden", isQuick);
+    bq.classList.toggle("active", isQuick);
+    bd.classList.toggle("active", !isQuick);
+  };
+  bq.onclick = () => setMode(true);
+  bd.onclick = () => setMode(false);
+
+  // --- registro rápido ---
+  document.getElementById("gym-quick-add").onclick = () => {
+    const strength = +document.getElementById("q-strength").value || 0;
+    const cardio = +document.getElementById("q-cardio").value || 0;
+    if (!strength && !cardio) return toast("Informe ao menos um tempo 🙂");
+    const w = state.profile.weight;
+    if (strength) {
+      today().gym.push({
+        n: GYM_QUICK.musculacao.n, group: "Musculação", min: strength,
+        kcal: Gym.kcal(GYM_QUICK.musculacao.met, strength, w), quick: true,
+      });
+    }
+    if (cardio) {
+      today().gym.push({
+        n: GYM_QUICK.aerobico.n, group: "Aeróbico", min: cardio,
+        kcal: Gym.kcal(GYM_QUICK.aerobico.met, cardio, w), quick: true,
+      });
+    }
+    saveState();
+    document.getElementById("q-strength").value = "";
+    document.getElementById("q-cardio").value = "";
+    addXp(15, "treino registrado");
+    renderGym();
+    renderToday();
+  };
+
+  // --- busca de exercícios ---
+  const input = document.getElementById("gym-search");
+  const sug = document.getElementById("gym-suggest");
+  input.addEventListener("input", () => {
+    const results = Gym.search(input.value);
+    if (input.value.trim().length < 2 || !results.length) return sug.classList.add("hidden");
+    sug.innerHTML = results.map((e, i) => `
+      <button type="button" data-i="${i}">
+        <span>${e.n}<span class="s-group">${e.g}</span></span>
+        <span class="s-kcal">${e.w ? "com carga" : "livre"}</span>
+      </button>`).join("");
+    sug.classList.remove("hidden");
+    sug.querySelectorAll("button").forEach((b, i) =>
+      b.addEventListener("click", () => pickExercise(results[i])));
+  });
+  document.addEventListener("click", (e) => {
+    if (!sug.contains(e.target) && e.target !== input) sug.classList.add("hidden");
+  });
+
+  document.getElementById("gym-cancel").onclick = () => {
+    gymPicked = null;
+    document.getElementById("gym-form").classList.add("hidden");
+    document.getElementById("gym-search").value = "";
+  };
+
+  document.getElementById("gym-add").onclick = () => {
+    if (!gymPicked) return;
+    const sets = +document.getElementById("g-sets").value || 0;
+    const reps = +document.getElementById("g-reps").value || 0;
+    const load = +document.getElementById("g-load").value || 0;
+    const min = +document.getElementById("g-min").value || 0;
+    if (min <= 0) return toast("Quantos minutos durou? 🙂");
+    today().gym.push({
+      n: gymPicked.n, group: gymPicked.g, min,
+      sets: gymPicked.g === "Aeróbico" ? 0 : sets,
+      reps: gymPicked.g === "Aeróbico" ? 0 : reps,
+      load: gymPicked.g === "Aeróbico" ? 0 : load,
+      kcal: Gym.kcal(gymPicked.met, min, state.profile.weight),
+    });
+    saveState();
+    if (today().gym.length === 1) addXp(15, "treino registrado");
+    document.getElementById("gym-cancel").click();
+    renderGym();
+    renderToday();
+  };
+}
+
+function pickExercise(ex) {
+  gymPicked = ex;
+  document.getElementById("gym-suggest").classList.add("hidden");
+  document.getElementById("gym-search").value = ex.n;
+  document.getElementById("gym-form").classList.remove("hidden");
+  const isCardio = ex.g === "Aeróbico";
+  document.getElementById("gym-picked").innerHTML =
+    `${ex.n}<small>${ex.g}${isCardio ? " · só o tempo importa" : ""}</small>`;
+  // aeróbico não usa séries/reps/carga
+  ["g-sets", "g-reps", "g-load"].forEach((id) => {
+    document.getElementById(id).closest("label").style.display = isCardio ? "none" : "";
+  });
+
+  const prev = Gym.lastLoad(state, ex.n);
+  const hint = document.getElementById("gym-hint");
+  if (prev && !isCardio) {
+    document.getElementById("g-load").value = prev.load;
+    document.getElementById("g-reps").value = prev.reps || 12;
+    const d = new Date(prev.day + "T12:00:00");
+    hint.textContent = `Da última vez (${fmtDate(d)}): ${prev.load} kg × ${prev.reps} reps — tenta subir um pouco? 💪`;
+  } else {
+    hint.textContent = isCardio ? "" : "Primeira vez com esse exercício — anote a carga para comparar depois.";
+  }
+}
+
+function renderGym() {
+  const day = today();
+  const s = Gym.summary(day);
+  document.getElementById("gym-min").textContent = s.total;
+  document.getElementById("gym-kcal").textContent = s.kcal;
+  document.getElementById("gym-vol").textContent =
+    s.volume >= 1000 ? (s.volume / 1000).toFixed(1) : (s.volume ? (s.volume / 1000).toFixed(2) : "0");
+
+  renderItemList("gym-list", day.gym, (e, i) => {
+    const det = [];
+    if (e.sets && e.reps) det.push(`${e.sets}×${e.reps}`);
+    if (e.load) det.push(`${e.load} kg`);
+    det.push(`${e.min} min`);
+    return `
+      <span class="i-name">${e.n}<span class="i-portion">${e.group} · ${det.join(" · ")}</span></span>
+      <span class="i-kcal">−${e.kcal} kcal</span>
+      <button class="i-del" data-del-gym="${i}">✕</button>`;
+  }, "Nenhum treino hoje. Bora? 💪");
+
+  document.querySelectorAll("[data-del-gym]").forEach((b) =>
+    b.addEventListener("click", () => {
+      today().gym.splice(+b.dataset.delGym, 1);
+      saveState();
+      renderGym();
+      renderToday();
+    }));
+
+  // grupos musculares da semana
+  const groups = Gym.weekGroups(state);
+  const el = document.getElementById("gym-week");
+  const entries = Object.entries(groups).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) {
+    el.innerHTML = `<h2>📅 Semana</h2><p class="info-text">Registre treinos para ver quais grupos você trabalhou.</p>`;
+    return;
+  }
+  const max = Math.max(...entries.map((e) => e[1]));
+  el.innerHTML = `<h2>📅 Grupos treinados nos últimos 7 dias</h2>
+    <div class="group-bars">` +
+    entries.map(([g, n]) => `
+      <div class="group-row">
+        <span class="group-name">${g}</span>
+        <span class="group-bar"><span class="group-fill" style="width:${(n / max) * 100}%"></span></span>
+        <span class="group-n">${n}</span>
+      </div>`).join("") + `</div>`;
 }
 
 // ===== Progresso =====
@@ -702,7 +1051,8 @@ function setupTabs() {
       document.querySelectorAll(".tab").forEach((t) => t.classList.add("hidden"));
       document.getElementById("tab-" + b.dataset.tab).classList.remove("hidden");
       if (b.dataset.tab === "progresso") renderProgress();
-      if (b.dataset.tab === "desafios") renderChallenges();
+      if (b.dataset.tab === "jejum") renderFasting();
+      if (b.dataset.tab === "treino") renderGym();
       if (b.dataset.tab === "perfil") renderProfileForm();
     }));
 }
@@ -711,6 +1061,8 @@ function renderAll() {
   renderHeader();
   renderToday();
   renderChallenges();
+  renderFasting();
+  renderGym();
   renderProgress();
   renderProfileForm();
 }
@@ -725,6 +1077,8 @@ function startApp() {
   setupWeighCard();
   setupWater();
   setupPets();
+  setupFasting();
+  setupGym();
   setupProgress();
   setupTabs();
   renderAll();

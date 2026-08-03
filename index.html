@@ -166,14 +166,123 @@
           <button id="ex-add-btn" class="btn-small">+</button>
         </div>
         <ul id="ex-list" class="item-list"></ul>
+        <p class="info-text" id="gym-link-note" style="margin-top:10px"></p>
+      </section>
+
+      <section class="panel">
+        <h2>⚔️ Desafios de hoje</h2>
+        <div id="challenge-list"></div>
       </section>
     </main>
 
-    <!-- --- Aba Desafios --- -->
-    <main id="tab-desafios" class="tab hidden">
-      <h2 class="page-title">⚔️ Desafios de hoje</h2>
-      <p class="page-sub">Complete desafios para ganhar XP e acelerar seu bonequinho!</p>
-      <div id="challenge-list"></div>
+    <!-- --- Aba Jejum --- -->
+    <main id="tab-jejum" class="tab hidden">
+      <h2 class="page-title">⏱️ Jejum intermitente</h2>
+
+      <section class="panel fast-panel">
+        <div id="fast-clock-wrap" class="fast-clock" role="button" tabindex="0"
+             aria-label="Ver fases do jejum">
+          <svg viewBox="0 0 200 200" class="fast-ring">
+            <circle cx="100" cy="100" r="88" class="ring-bg" />
+            <circle cx="100" cy="100" r="88" class="ring-fill" id="fast-ring-fill" />
+          </svg>
+          <div class="fast-center">
+            <div class="fast-time" id="fast-time">00:00:00</div>
+            <div class="fast-goal" id="fast-goal">toque para ver as fases</div>
+            <div class="fast-phase" id="fast-phase"></div>
+          </div>
+        </div>
+
+        <div id="fast-idle" class="fast-controls">
+          <label class="fast-field">Protocolo
+            <select id="fast-protocol"></select>
+          </label>
+          <label class="fast-field">Comecei a jejuar
+            <input id="fast-start-input" type="datetime-local" />
+          </label>
+          <button id="fast-start" class="btn-primary">Começar jejum ⏱️</button>
+        </div>
+
+        <div id="fast-active" class="fast-controls hidden">
+          <p class="fast-since" id="fast-since"></p>
+          <p class="fast-eta" id="fast-eta"></p>
+          <button id="fast-stop" class="btn-secondary">Encerrar jejum</button>
+        </div>
+      </section>
+
+      <section class="panel" id="fast-phases-panel">
+        <h2>🧬 O que já aconteceu no seu corpo</h2>
+        <div id="fast-phase-list" class="phase-list"></div>
+        <p class="info-text" style="margin-top:12px">
+          Os horários são aproximados e variam de pessoa para pessoa. Jejum acima
+          de 24h, gestantes, quem toma remédio contínuo ou tem diabetes: converse
+          com seu médico antes.
+        </p>
+      </section>
+
+      <section class="panel" id="fast-stats"></section>
+    </main>
+
+    <!-- --- Aba Treino --- -->
+    <main id="tab-treino" class="tab hidden">
+      <h2 class="page-title">💪 Treino de hoje</h2>
+
+      <section class="cards" id="gym-cards">
+        <div class="card"><div class="card-val" id="gym-min">0</div><div class="card-lbl">minutos</div></div>
+        <div class="card"><div class="card-val" id="gym-kcal">0</div><div class="card-lbl">kcal</div></div>
+        <div class="card"><div class="card-val" id="gym-vol">0</div><div class="card-lbl">ton. levantadas</div></div>
+      </section>
+
+      <section class="panel">
+        <div class="mode-switch">
+          <button id="gym-mode-quick" class="mode-btn active">Rápido</button>
+          <button id="gym-mode-detail" class="mode-btn">Detalhado</button>
+        </div>
+
+        <!-- registro rápido: só os minutos -->
+        <div id="gym-quick">
+          <p class="info-text" style="margin-bottom:12px">
+            Sem tempo pra detalhar? Diga só quanto tempo você ficou em cada tipo.
+          </p>
+          <div class="quick-row">
+            <span class="quick-label">🏋️ Musculação</span>
+            <input id="q-strength" type="number" min="0" max="300" placeholder="0" />
+            <span class="unit">min</span>
+          </div>
+          <div class="quick-row">
+            <span class="quick-label">🏃 Aeróbico</span>
+            <input id="q-cardio" type="number" min="0" max="300" placeholder="0" />
+            <span class="unit">min</span>
+          </div>
+          <button id="gym-quick-add" class="btn-primary">Registrar treino</button>
+        </div>
+
+        <!-- registro detalhado: exercício por exercício -->
+        <div id="gym-detail" class="hidden">
+          <div class="food-input-wrap">
+            <input id="gym-search" type="text" placeholder="ex.: supino, agachamento, esteira…" autocomplete="off" />
+            <div id="gym-suggest" class="suggest hidden"></div>
+          </div>
+          <div id="gym-form" class="hidden">
+            <div class="gym-picked" id="gym-picked"></div>
+            <div class="gym-fields">
+              <label>Séries <input id="g-sets" type="number" min="1" max="20" value="3" /></label>
+              <label>Reps <input id="g-reps" type="number" min="1" max="100" value="12" /></label>
+              <label>Carga (kg) <input id="g-load" type="number" min="0" max="500" step="0.5" placeholder="0" /></label>
+              <label>Tempo (min) <input id="g-min" type="number" min="1" max="180" value="10" /></label>
+            </div>
+            <p class="gym-hint" id="gym-hint"></p>
+            <div class="gym-actions">
+              <button id="gym-add" class="btn-primary">Adicionar exercício</button>
+              <button id="gym-cancel" class="btn-ghost">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <ul id="gym-list" class="item-list"></ul>
+      </section>
+
+      <section class="panel" id="gym-week"></section>
     </main>
 
     <!-- --- Aba Progresso --- -->
@@ -244,7 +353,8 @@
     <!-- --- Navegação --- -->
     <nav class="bottomnav">
       <button data-tab="hoje" class="active"><span>🏠</span>Hoje</button>
-      <button data-tab="desafios"><span>⚔️</span>Desafios</button>
+      <button data-tab="jejum"><span>⏱️</span>Jejum</button>
+      <button data-tab="treino"><span>💪</span>Treino</button>
       <button data-tab="progresso"><span>📈</span>Progresso</button>
       <button data-tab="perfil"><span>👤</span>Perfil</button>
     </nav>
@@ -255,6 +365,8 @@
   <script src="js/foods.js"></script>
   <script src="js/calc.js"></script>
   <script src="js/challenges.js"></script>
+  <script src="js/fasting.js"></script>
+  <script src="js/gym.js"></script>
   <script src="js/mascots.js"></script>
   <script src="js/game.js"></script>
   <script src="js/sync.js"></script>

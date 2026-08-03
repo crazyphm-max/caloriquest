@@ -304,3 +304,91 @@ body {
 .switch:checked { background: var(--green); }
 .switch:checked::after { transform: translateX(20px); }
 .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ===== Modo jejum ===== */
+.fast-panel { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.fast-clock {
+  position: relative; width: 240px; max-width: 78vw; aspect-ratio: 1;
+  cursor: pointer; user-select: none;
+}
+.fast-clock:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 50%; }
+.fast-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: #e6ecf6; stroke-width: 12; }
+.ring-fill {
+  fill: none; stroke: url(#fastGrad); stroke: #e0703c; stroke-width: 12;
+  stroke-linecap: round; transition: stroke-dashoffset 0.6s ease, stroke 0.6s;
+}
+.fast-clock.done .ring-fill { stroke: var(--green); }
+.fast-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; text-align: center; padding: 0 18%;
+}
+.fast-time { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; }
+.fast-goal { font-size: 0.78rem; color: var(--muted); }
+.fast-phase { font-size: 0.85rem; font-weight: 700; margin-top: 4px; }
+
+.fast-controls { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.fast-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; }
+.fast-field select, .fast-field input {
+  font-size: 1rem; padding: 10px 12px; border: 1.5px solid var(--border);
+  border-radius: 10px; background: #fafbfe; width: 100%;
+}
+.fast-since, .fast-eta { font-size: 0.88rem; color: var(--muted); text-align: center; margin: 0; }
+.fast-eta b, .fast-since b { color: var(--ink); }
+
+.phase-list { display: flex; flex-direction: column; gap: 2px; }
+.phase {
+  display: flex; gap: 12px; padding: 10px 4px; border-bottom: 1px solid #f0f3f8;
+  opacity: 0.45; transition: opacity 0.3s;
+}
+.phase:last-child { border-bottom: none; }
+.phase.reached { opacity: 1; }
+.phase.now { opacity: 1; background: #fff6ed; border-radius: 10px; padding-left: 10px; }
+.phase-icon { font-size: 1.4rem; line-height: 1.4; width: 28px; text-align: center; flex: none; }
+.phase-body { flex: 1; }
+.phase-title { font-weight: 700; font-size: 0.92rem; display: flex; align-items: center; gap: 6px; }
+.phase-h { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+.phase-txt { font-size: 0.82rem; color: var(--muted); line-height: 1.45; margin-top: 2px; }
+.phase-check { color: var(--green); font-weight: 800; }
+
+/* ===== Modo academia ===== */
+.mode-switch {
+  display: flex; gap: 6px; background: #eef2f9; padding: 4px;
+  border-radius: 12px; margin-bottom: 14px;
+}
+.mode-btn {
+  flex: 1; padding: 9px; border: none; background: none; border-radius: 9px;
+  font-weight: 700; font-size: 0.9rem; color: var(--muted); cursor: pointer;
+}
+.mode-btn.active { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(30, 50, 90, 0.12); }
+
+.quick-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.quick-label { flex: 1; font-weight: 600; font-size: 0.95rem; }
+.quick-row input {
+  width: 80px; font-size: 1rem; padding: 10px; text-align: center;
+  border: 1.5px solid var(--border); border-radius: 10px; background: #fafbfe;
+}
+
+.gym-picked { font-weight: 700; margin: 12px 0 8px; font-size: 0.95rem; }
+.gym-picked small { display: block; font-weight: 500; color: var(--muted); font-size: 0.78rem; }
+.gym-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gym-fields label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; font-weight: 600; }
+.gym-fields input {
+  font-size: 1rem; padding: 9px; border: 1.5px solid var(--border);
+  border-radius: 10px; background: #fafbfe; width: 100%;
+}
+.gym-hint { font-size: 0.8rem; color: var(--muted); margin: 10px 0 0; min-height: 1.1em; }
+.gym-actions { display: flex; gap: 8px; margin-top: 12px; }
+.gym-actions .btn-primary { flex: 1; margin-top: 0; }
+.suggest .s-group { color: var(--muted); font-size: 0.78rem; display: block; }
+
+.group-bars { display: flex; flex-direction: column; gap: 8px; }
+.group-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+.group-name { width: 74px; font-weight: 600; }
+.group-bar { flex: 1; height: 8px; background: #e7ecf5; border-radius: 999px; overflow: hidden; }
+.group-fill { height: 100%; background: linear-gradient(90deg, #7a5cf0, #4d8ae8); border-radius: 999px; }
+.group-n { width: 20px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* 5 abas: rótulos um pouco menores para caber */
+.bottomnav button { font-size: 0.68rem; }
+.bottomnav button span { font-size: 1.2rem; }

@@ -9,8 +9,10 @@ const CHALLENGE_DB = [
   { id: "nosugar", txt: "Zero doces e sobremesas hoje", xp: 40, type: "manual" },
   { id: "nosoda", txt: "Zero refrigerante e bebida açucarada", xp: 30, type: "manual" },
   { id: "water2l", txt: "Beba pelo menos 2 litros de água", xp: 30, type: "manual" },
-  { id: "fast14", txt: "Jejum intermitente: fique 14h sem comer", xp: 60, type: "manual" },
-  { id: "fast16", txt: "Jejum 16/8: fique 16h sem comer", xp: 80, type: "manual" },
+  { id: "fast14", txt: "Jejum intermitente: fique 14h sem comer ⏱️", xp: 60, type: "auto",
+    check: (d) => d.fastHours >= 14,
+    prog: (d) => `${d.fastHours.toFixed(1)}/14 h` },
+
   { id: "stairs", txt: "Só escadas hoje — nada de elevador", xp: 25, type: "manual" },
   { id: "walklunch", txt: "Caminhe 10 min depois do almoço", xp: 25, type: "manual" },
   { id: "veggie", txt: "Salada ou legumes em 2 refeições", xp: 30, type: "manual" },
@@ -25,6 +27,15 @@ const CHALLENGE_DB = [
   { id: "protein80", txt: "Chegue a 80% da meta de proteína", xp: 35, type: "auto",
     check: (d) => d.protein >= d.proteinGoal * 0.8,
     prog: (d) => `${Math.round((d.protein / d.proteinGoal) * 100)}% de 80%` },
+  { id: "gym30", txt: "Treine 30 minutos hoje 💪", xp: 45, type: "auto",
+    check: (d) => d.gymMin >= 30,
+    prog: (d) => `${Math.min(30, d.gymMin)}/30 min` },
+  { id: "gymboth", txt: "Musculação + aeróbico no mesmo dia", xp: 55, type: "auto",
+    check: (d) => d.gymStrength > 0 && d.gymCardio > 0,
+    prog: (d) => `${d.gymStrength > 0 ? "🏋️" : "⬜"} ${d.gymCardio > 0 ? "🏃" : "⬜"}` },
+  { id: "fast16h", txt: "Complete um jejum de 16h ⏱️", xp: 80, type: "auto",
+    check: (d) => d.fastHours >= 16,
+    prog: (d) => `${d.fastHours.toFixed(1)}/16 h` },
 ];
 
 // Sorteio determinístico: mesmos 3 desafios para o dia, mudando a cada dia

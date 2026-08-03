@@ -29,7 +29,9 @@ function dayKey(d = new Date()) {
 
 function dayTotals(day) {
   const eaten = (day?.foods || []).reduce((s, f) => s + f.kcal * (f.qty || 1), 0);
-  const burned = (day?.ex || []).reduce((s, e) => s + e.kcal, 0);
+  // exercícios avulsos + sessão de academia contam juntos
+  const burned = (day?.ex || []).reduce((s, e) => s + e.kcal, 0)
+    + (day?.gym || []).reduce((s, e) => s + (e.kcal || 0), 0);
   const protein = (day?.foods || []).reduce((s, f) => s + (f.pr || 0) * (f.qty || 1), 0);
   // água: o que veio das bebidas/comidas + os copos registrados na mão
   const water = (day?.foods || []).reduce((s, f) => s + (f.ml || 0) * (f.qty || 1), 0)

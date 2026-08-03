@@ -29,6 +29,8 @@ def build():
     foods = read("js/foods.js")
     calc = read("js/calc.js")
     challenges = read("js/challenges.js")
+    fasting = read("js/fasting.js")
+    gym = read("js/gym.js")
     mascots = read("js/mascots.js")
     game = read("js/game.js")
     sync = read("js/sync.js")
@@ -76,6 +78,8 @@ def build():
 {foods}
 {calc}
 {challenges}
+{fasting}
+{gym}
 {mascots}
 {game}
 {sync}

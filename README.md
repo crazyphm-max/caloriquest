@@ -99,20 +99,20 @@ cada pessoa cria sua conta (e-mail + senha), os dados ficam no banco D1 e
 sincronizam entre aparelhos. Sem a API (GitHub Pages, arquivo local), o app
 funciona em modo local, como sempre.
 
-Deploy (uma vez, ~10 minutos):
+Deploy em um comando (~10 minutos na primeira vez):
 
 ```bash
-npm install -g wrangler
-wrangler login                                # abre o navegador p/ autorizar
-wrangler d1 create caloriquest-db             # copie o database_id que aparecer
-# cole o database_id no wrangler.toml
-wrangler d1 execute caloriquest-db --remote --file=schema.sql
-wrangler pages deploy .
+bash tools/setup_cloudflare.sh
 ```
 
+O script faz login, cria o banco D1, escreve o `database_id` no `wrangler.toml`,
+cria as tabelas e publica o site. No fim ele mostra o único passo que precisa ser
+feito no painel: ligar o banco ao site em *Settings → Bindings → Add → D1
+database*, com o nome de variável `DB`.
+
 O site sobe em `https://caloriquest.pages.dev` (dá pra ligar domínio próprio).
-Deploys seguintes: só `wrangler pages deploy .` de novo — ou conecte o
-repositório no painel do Cloudflare Pages para deploy automático a cada push.
+Deploys seguintes: `npx wrangler pages deploy .` — ou conecte o repositório no
+painel do Cloudflare Pages para deploy automático a cada push.
 
 Notas de segurança: senhas com PBKDF2 (100 mil iterações), sessão em cookie
 HttpOnly de 180 dias, e cada usuário só acessa o próprio estado.

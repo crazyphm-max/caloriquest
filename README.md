@@ -92,72 +92,50 @@ As dicas aparecem numa caixa de diálogo no rodapé da cena, em rodízio: lembre
 pesagem em jejum, quanto falta de proteína, aviso quando você passou das calorias,
 sugestão de caminhada, e por aí vai.
 
-## Nuvem: login e dados por pessoa (Cloudflare)
+## Nuvem: login e dados por pessoa (Firebase)
 
-O app tem uma API pronta para **Cloudflare Pages + Functions + D1** (grátis):
-cada pessoa entra com **Google** ou com **e-mail + senha**, os dados ficam no
-banco D1 e sincronizam entre aparelhos. Sem a API (GitHub Pages, arquivo local),
-o app funciona em modo local, como sempre.
+Cada pessoa entra com a **conta Google** ou com **e-mail + senha**, e os dados
+ficam num documento só dela no **Firestore**, sincronizando entre aparelhos.
+Sem configuração preenchida, o app roda em **modo local**: funciona inteiro, só
+que guardando tudo no aparelho.
 
-Se a pessoa já tinha conta por senha e depois clica no botão do Google com o
-mesmo e-mail, é a mesma conta — o histórico continua lá.
+Usa o plano **Spark (grátis)** do Firebase — Authentication e Firestore cabem
+nele com folga, e ele não pede cartão de crédito.
 
-### Publicar sem instalar nada (só o navegador)
+### Como ligar (só o navegador, ~5 minutos)
 
-O workflow `.github/workflows/cloudflare.yml` faz tudo pelo GitHub Actions —
-igualzinho ao GitHub Pages, sem baixar nada para o computador. Só precisa
-autorizar o GitHub a mexer na sua conta do Cloudflare, com dois segredos:
+1. https://console.firebase.google.com → **Adicionar projeto** (pode recusar o
+   Google Analytics).
+2. **Authentication → Get started**. Na aba *Sign-in method*, ative
+   **Google** (escolha um e-mail de suporte) e **E-mail/senha**.
+3. Ainda em Authentication → *Settings → Authorized domains*, adicione o
+   endereço onde o app fica — por exemplo `crazyphm-max.github.io`.
+4. **Firestore Database → Criar banco de dados**, modo produção, região à
+   escolha (`southamerica-east1` é São Paulo).
+5. Na aba **Regras** do Firestore, cole o conteúdo de
+   [`firestore.rules`](firestore.rules) e publique. É isso que garante que cada
+   pessoa só enxerga os próprios dados.
+6. ⚙ **Configurações do projeto → Seus aplicativos → app da Web (`</>`)**,
+   registre um app e copie o objeto `firebaseConfig`.
+7. Cole os valores em [`js/firebase-config.js`](js/firebase-config.js) e faça o
+   commit. Pronto — a tela de login aparece sozinha.
 
-1. **Cloudflare → My Profile → API Tokens → Create Token → Create Custom Token**
-   com estas permissões de conta: *Cloudflare Pages → Edit*, *D1 → Edit* e
-   *Workers Scripts → Edit*. Copie o token (ele só aparece uma vez).
-2. **Account ID**: no painel, em *Workers & Pages*, na barra lateral direita —
-   ou o código que aparece na URL depois de `dash.cloudflare.com/`.
-3. No GitHub: *Settings → Secrets and variables → Actions → New repository
-   secret*, cadastre `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`.
-4. Aba **Actions → Publicar no Cloudflare → Run workflow**.
+Aquelas chaves do `firebase-config.js` podem ficar no repositório público sem
+problema: elas são públicas por natureza (todo site com Firebase as expõe no
+navegador). Quem protege os dados são as regras do passo 5.
 
-O workflow cria o projeto no Pages, cria o banco D1, descobre o `database_id`
-sozinho, cria as tabelas e publica. No fim do log ele mostra o endereço. Dali em
-diante, todo push republica automaticamente.
-
-O site sobe em `https://caloriquest.pages.dev` (dá pra ligar domínio próprio).
-
-### Ligar o "Entrar com Google"
-
-Opcional — sem isso o app entra só por e-mail e senha, e o botão nem aparece.
-
-1. https://console.cloud.google.com → crie um projeto (nome livre).
-2. *APIs & Services → OAuth consent screen*: tipo **External**, preencha nome do
-   app e e-mail, e em *Test users* adicione os e-mails de quem vai usar (assim
-   não precisa passar pela revisão do Google).
-3. *APIs & Services → Credentials → Create Credentials → OAuth client ID*, tipo
-   **Web application**. Em **Authorized JavaScript origins** coloque
-   `https://caloriquest.pages.dev` (e o domínio próprio, se tiver).
-   Não precisa preencher redirect URIs — o app usa o botão do Google, sem
-   redirecionamento.
-4. Copie o **Client ID** e cadastre no GitHub como o segredo `GOOGLE_CLIENT_ID`.
-5. Rode o workflow de novo.
-
-A validação do token acontece no servidor, conferindo a assinatura com as chaves
-públicas do Google. Para testar essa parte sem depender de internet:
+### Testando o login sem depender do Firebase
 
 ```bash
-node tools/test_google_login.mjs
+npm i playwright && npx playwright install chromium
+node tools/test-login/run.mjs
 ```
 
-### Alternativa: pelo terminal
-
-Se preferir rodar na sua máquina (precisa de Node instalado):
-
-```bash
-bash tools/setup_cloudflare.sh
-```
-
-Faz o mesmo caminho, pedindo o login do Cloudflare pelo navegador.
-
-Notas de segurança: senhas com PBKDF2 (100 mil iterações), sessão em cookie
-HttpOnly de 180 dias, e cada usuário só acessa o próprio estado.
+Sobe uma cópia do site contra um Firebase de mentira e roda o caminho inteiro
+num navegador de verdade: entrar com o Google, cadastrar por e-mail, gravar na
+nuvem, limpar o aparelho e recuperar os dados, sair, errar a senha, e a janela
+bloqueada do celular caindo para o redirecionamento. Não precisa de internet
+nem de conta.
 
 ## Como usar no celular
 

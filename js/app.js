@@ -6,7 +6,7 @@ let state = null; // carregado no boot (local ou da nuvem)
 
 // Com login, cada usuário tem sua chave local (cache offline por conta)
 function storeKey() {
-  return Sync.user ? `${STORE_BASE}_${Sync.user.email}` : STORE_BASE;
+  return Sync.user ? `${STORE_BASE}_${Sync.user.uid}` : STORE_BASE;
 }
 
 function loadState(key = storeKey()) {
@@ -196,46 +196,22 @@ function setupAuth() {
     go(Sync.register);
   });
 
-  setupGoogleButton(msg, () => {
-    authEl.classList.add("hidden");
-    return enterApp();
+  // O botão do Google não passa pelo form, então não valida e-mail/senha
+  const gbtn = document.getElementById("auth-google-btn");
+  gbtn.addEventListener("click", async () => {
+    msg.textContent = "";
+    gbtn.disabled = true;
+    try {
+      await Sync.google();
+      if (!Sync.user) return; // foi por redirecionamento: a página vai recarregar
+      authEl.classList.add("hidden");
+      await enterApp();
+    } catch (e) {
+      msg.textContent = e.message;
+    } finally {
+      gbtn.disabled = false;
+    }
   });
-}
-
-// Botão "Entrar com Google". O script vem do próprio Google e só é carregado
-// aqui, na tela de login — o resto do app continua offline-first. Se o Client ID
-// não estiver configurado (ou o script não carregar), o botão simplesmente não
-// aparece e o login por senha segue funcionando.
-function setupGoogleButton(msg, onSuccess) {
-  const clientId = Sync.googleClientId;
-  if (!clientId) return;
-  const box = document.getElementById("auth-google");
-
-  const script = document.createElement("script");
-  script.src = "https://accounts.google.com/gsi/client";
-  script.async = true;
-  script.onerror = () => box.classList.add("hidden");
-  script.onload = () => {
-    if (!window.google?.accounts?.id) return;
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async (resp) => {
-        msg.textContent = "Entrando…";
-        try {
-          await Sync.google(resp.credential);
-          await onSuccess();
-        } catch (e) {
-          msg.textContent = e.message;
-        }
-      },
-    });
-    window.google.accounts.id.renderButton(
-      document.getElementById("auth-google-btn"),
-      { theme: "outline", size: "large", width: 280, text: "continue_with", locale: "pt-BR" }
-    );
-    box.classList.remove("hidden");
-  };
-  document.head.appendChild(script);
 }
 
 function renderProfileForm() {
